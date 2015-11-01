@@ -1,0 +1,12 @@
+{
+	"name": "dmud",
+	"description": "A minimal D application.",
+	"copyright": "Copyright © 2015, dhasenan",
+	"authors": ["dhasenan"],
+	"dependencies": {
+		"openssl": "~>1.1.4",
+		"feature-test-d": "~>1.0.1",
+		"dmocks-revived": "~master",
+		"jsonizer": "~>0.5.1"
+	}
+}
