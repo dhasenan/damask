@@ -63,6 +63,97 @@ void debugWrite(ubyte[] v) {
 	std.stdio.write("]\n");
 }
 
+
+void wrap(string value, int width, EncodingScheme encoding, void delegate(dchar) output) {
+	value = value.normalize!NFD;
+	auto len = 0;
+	dchar last = dchar.max;
+	auto lineWidth = 0;
+	auto start = 0;
+	size_t lastSplit = 0;
+	size_t lineStart = 0;
+	size_t atLastSplit = 0;
+	foreach (int i, dchar v; value) {
+		if (encoding.canEncode(v)) {
+			if (v == '\n') {
+				writeln("natural end of line; start: ", lineStart, " end: ", i);
+				if (i > 0) {
+					foreach (dchar d; value[lineStart..i]) {
+						output(d);
+					}
+				}
+				if (i <= 0 || value[i-1] != '\r') {
+					output('\r');
+				}
+				output(v);
+				lineWidth = 0;
+				lineStart = i + 1;
+				lastSplit = lineStart;
+				atLastSplit = 0;
+				continue;
+			}
+			if (unicode.Grapheme_Base[v]) {
+				lineWidth++;
+				if (lineWidth < width - 1) {
+					if (unicode.White_Space[v]) {
+						lastSplit = i;
+						atLastSplit = lineWidth;
+					}
+					continue;
+				}
+				if (unicode.White_Space[v]) {
+					// Omit this.
+					foreach (dchar d; value[lineStart..i-1]) {
+						output(d);
+					}
+					writeln("serendipitous whitespace; breaking at ", value[lineStart..i-1]);
+					lineStart = i + 1;
+					lineWidth = 0;
+					atLastSplit = 0;
+				} else if (lastSplit > lineStart) {
+					foreach (dchar d; value[lineStart..lastSplit]) {
+						output(d);
+					}
+					writeln("last whitespace; breaking at ", value[lineStart..lastSplit]);
+					lineStart = lastSplit + 1;
+					lineWidth -= atLastSplit;
+					atLastSplit = 0;
+				} else {
+					// TODO: this is wrong! We need to hyphenate at the last grapheme base!
+					foreach (dchar d; value[lineStart..i-1]) {
+						output(d);
+					}
+					output('-');
+				}
+				output('\r');
+				output('\n');
+				lineWidth = 0;
+			}
+		}
+	}
+	
+	if (lineStart < value.length - 1) {
+		// We have a trailing portion.
+		foreach (dchar v; value[lineStart..$]) {
+			output(v);
+		}
+	}
+}
+
+unittest {
+	string s;
+	auto target = "On the other hand, we denounce with righteous indignation and dislike men who are so beguiled and demoralized";
+	wrap(target, 25, EncodingScheme.create("ascii"), (dchar d) { s ~= d; }); 
+	assert(s == "On the other hand, we\r\ndenounce with righteous\r\nindignation and dislike\r\nmen who are so beguiled\r\nand demoralized");
+	
+	auto endsWithNewline = "On the first day\n";
+	s = "";
+	wrap(endsWithNewline, 25, EncodingScheme.create("ascii"), (dchar d) { s ~= d; });
+	writeln("wrapped as [", s, "]");
+	assert(s == "On the first day\r\n");
+}
+
+
 /// A telnet socket is a socket that can communicate via telnet.
 class TelnetSocket : ISink {
 	bool closed;
@@ -128,46 +219,28 @@ class TelnetSocket : ISink {
 	}
 
 	void write(string value) {
-		value = value.normalize!NFD;
 		auto len = 0;
-		dchar last = dchar.max;
-		auto lineWidth = 0;
-		auto start = 0;
 		void output(dchar v) {
 			auto c = _encoding.encodedLength(v);
-			if (c + len > _writeBuffer.length) {
+			if (c + len >= _writeBuffer.length) {
 				// TODO: we are optimistically assuming that send() will
 				// always succeed. If the client isn't acknowledging
 				// messages, we'll queue up a lot of stuff in the buffer
 				// and writes will start to fail. This will take 16k by
 				// default, though. (We *can* increase this number.)
-				_sock.send(_writeBuffer[start..len]);
-				start += len;
+				std.stdio.write("outgoing: ");
+				debugWrite(_writeBuffer[0..len]);
+				_sock.send(_writeBuffer[0..len]);
 				len = 0;
 			}
 			len += _encoding.encode(v, _writeBuffer[len..$]);
 		}
-		foreach (dchar v; value) {
-			if (_encoding.canEncode(v)) {
-				if (v == '\n') {
-					lineWidth = 0;
-					if (last != '\r') {
-						output('\r');
-					}
-				} else if (unicode.Grapheme_Base[v]) {
-					lineWidth++;
-					if (lineWidth >= _width) {
-						output('\r');
-						output('\n');
-					}
-				}
-				output(v);
-			}
-		}
+		wrap(value, _width, _encoding, &output);
 		if (len > 0) {
-			_sock.send(_writeBuffer[start..len]);
+			std.stdio.write("outgoing: ");
+			debugWrite(_writeBuffer[0..len]);
+			_sock.send(_writeBuffer[0..len]);
 			// Kinda pointless, but it's here to defend in case I refactor carelessly.
-			start += len;
 			len = 0;
 		}
 	}
