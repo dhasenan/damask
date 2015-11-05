@@ -1,6 +1,7 @@
 module dmud.domain;
 
 import std.uni, std.string;
+import dmud.log;
 import dmud.telnet_socket;
 
 class MudObj {
@@ -69,8 +70,22 @@ class Item : MudObj {
 
 struct Exit {
 	Room target;
+	string targetName;
 	string name;
 	string[] aliases;
+	bool identifiedBy(string str) {
+		if (name.toLower == str.toLower) {
+			return true;
+		}
+		logger.infof("[%s] != [%s]", name, str);
+		foreach (a; aliases) {
+			if (a.toLower == str.toLower) {
+				return true;
+			}
+			logger.infof("[%s] != [%s]", a, str);
+		}
+		return false;
+	}
 }
 
 class Room : MudObj {

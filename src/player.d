@@ -64,11 +64,28 @@ class PlayerBehavior : Behavior {
 	void run() {
 		logger.infof("starting player behavior");
 		writeln("starting player behavior!!");
+		mainLoop:
 		while (!telnet.closed) {
 			auto line = telnet.readLine.stripRight;
 			auto parts = line.splitOnce;
 			logger.infof("player command: [%s] [%s]", parts.head, parts.tail);
-			// TODO: room exits
+			auto tail = parts.tail.strip.toLower;
+
+			// Room exits take priority.
+			if (player.mob.room) {
+				logger.info("checking for exits");
+				foreach (exit; player.mob.room.exits) {
+					logger.infof("checking exit toward %s", exit.name);
+					if (exit.identifiedBy(parts.head)) {
+						logger.infof("moving player to room %s", exit.target.id);
+						player.mob.room = exit.target;
+						logger.info("player has been moved");
+						continue mainLoop;
+					}
+				}
+				logger.info("no matching exit");
+			}
+
 			// TODO: aliases
 			// TODO: item- and room-specific commands
 			auto commandsPtr = parts.head in Command.allCommands;
