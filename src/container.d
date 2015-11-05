@@ -35,6 +35,15 @@ struct Queue(T, int size = 50) {
 	bool full() {
 		return count >= size;
 	}
+	
+	int opApply(int delegate(ref T) dg) {
+		int result = 0;
+		for (int i = 0; i < count; i++) {
+			result = dg(array[(i + first) % size]);
+			if (result) break;
+		}
+		return result;
+	}
 }
 
 unittest {

@@ -1,38 +1,7 @@
 module dmud.domain;
 
 import std.uni, std.string;
-
-// TODO in-mud calendar; day / night cycle; seasons
-// TODO concrete conversion to real-world time
-struct Time {
-	static Time zero = {0};
-	long ticks;
-
-	bool opEquals(Time other) {
-		return ticks == other.ticks;
-	}
-
-	int opCmp(Time other) {
-		return ticks == other.ticks ? 0 :
-			ticks < other.ticks ? -1 : 1;
-	}
-
-	Time opBinary(string s)(Span other) if (s == "+") {
-		return Time(ticks + other.ticks);
-	}
-
-	Time opBinary(string s)(Span other) if (s == "-") {
-		return Time(ticks - other.ticks);
-	}
-
-	Time opBinary(string s)(Time other) if (s == "-") {
-		return Span(ticks - other.ticks);
-	}
-}
-
-struct Span {
-	long ticks;
-}
+import dmud.telnet_socket;
 
 class MudObj {
 	/// Internal ID. This should be a human-readable string.
@@ -86,6 +55,10 @@ class MudObj {
 		}
 		return false;
 	}
+
+	string lookAt() {
+		return description;
+	}
 }
 
 class Item : MudObj {
@@ -94,41 +67,41 @@ class Item : MudObj {
 	MudObj containing;
 }
 
+struct Exit {
+	Room target;
+	string name;
+	string[] aliases;
+}
+
 class Room : MudObj {
 	Mob[] mobs;
 	Item[] items;
+	Exit[] exits;
 }
 
-abstract class Command {
-	private int _generation;
-	final void act(MudObj self) {
-		if (self.generation != _generation) {
-			return;
-		}
-		doAct(self);
-	}
+class Behavior {
 
-	abstract void doAct(MudObj self);
-}
-
-interface IBehavior {
-	Command next(Time now);
 }
 
 // TODO: some sort of MobRecipe so I can have variants.
 // Some simple text replacement in the description and name, some attribute variation, etc.
 class Mob : MudObj {
-	Room location;
+	Room room;
 	Item[] inventory;
-	ISink sink = new Sink();
-}
-
-interface ISink {
-	void write(string value);
-}
-
-class Sink : ISink {
-	void write(string value) {}
+	Behavior behavior;
+	TelnetSocket telnet;
+	
+	void write(string value) {
+		if (telnet) {
+			telnet.write(value);
+		}
+	}
+	
+	void writeln(string value) {
+		if (telnet) {
+			telnet.writeln(value);
+		}
+	}
 }
 
 /* TODO what kind of separation do I want between the base definition of the world and its
@@ -148,8 +121,8 @@ class Sink : ISink {
 
 
 /** A zone is a group of rooms with similar treatment.
-	* For now, "similar treatment" pretty much means mob spawns.
-	*/
+ * For now, "similar treatment" pretty much means mob spawns.
+ */
 class Zone : MudObj {
 	/// Rooms belonging to this zone.
 	Room[] rooms;
@@ -161,7 +134,9 @@ class Zone : MudObj {
 
 
 class World {
+	static World current;
 	Mob[string] mobs;
 	Zone[string] zones;
 	Item[string] items;
+	Room startingRoom;
 }

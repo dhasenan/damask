@@ -76,7 +76,6 @@ void wrap(string value, int width, EncodingScheme encoding, void delegate(dchar)
 	foreach (int i, dchar v; value) {
 		if (encoding.canEncode(v)) {
 			if (v == '\n') {
-				writeln("natural end of line; start: ", lineStart, " end: ", i);
 				if (i > 0) {
 					foreach (dchar d; value[lineStart..i]) {
 						output(d);
@@ -106,7 +105,6 @@ void wrap(string value, int width, EncodingScheme encoding, void delegate(dchar)
 					foreach (dchar d; value[lineStart..i-1]) {
 						output(d);
 					}
-					writeln("serendipitous whitespace; breaking at ", value[lineStart..i-1]);
 					lineStart = i + 1;
 					lineWidth = 0;
 					atLastSplit = 0;
@@ -114,7 +112,6 @@ void wrap(string value, int width, EncodingScheme encoding, void delegate(dchar)
 					foreach (dchar d; value[lineStart..lastSplit]) {
 						output(d);
 					}
-					writeln("last whitespace; breaking at ", value[lineStart..lastSplit]);
 					lineStart = lastSplit + 1;
 					lineWidth -= atLastSplit;
 					atLastSplit = 0;
@@ -149,13 +146,12 @@ unittest {
 	auto endsWithNewline = "On the first day\n";
 	s = "";
 	wrap(endsWithNewline, 25, EncodingScheme.create("ascii"), (dchar d) { s ~= d; });
-	writeln("wrapped as [", s, "]");
 	assert(s == "On the first day\r\n");
 }
 
 
 /// A telnet socket is a socket that can communicate via telnet.
-class TelnetSocket : ISink {
+class TelnetSocket {
 	bool closed;
 
 	private {
@@ -228,8 +224,6 @@ class TelnetSocket : ISink {
 				// messages, we'll queue up a lot of stuff in the buffer
 				// and writes will start to fail. This will take 16k by
 				// default, though. (We *can* increase this number.)
-				std.stdio.write("outgoing: ");
-				debugWrite(_writeBuffer[0..len]);
 				_sock.send(_writeBuffer[0..len]);
 				len = 0;
 			}
@@ -237,8 +231,6 @@ class TelnetSocket : ISink {
 		}
 		wrap(value, _width, _encoding, &output);
 		if (len > 0) {
-			std.stdio.write("outgoing: ");
-			debugWrite(_writeBuffer[0..len]);
 			_sock.send(_writeBuffer[0..len]);
 			// Kinda pointless, but it's here to defend in case I refactor carelessly.
 			len = 0;
@@ -325,7 +317,6 @@ class TelnetSocket : ISink {
 			if (received < 0) {
 				continue;
 			}
-			debugWrite(readBuffer[0..received]);
 			for (int i = 0; i < received; i++) {
 				a = b;
 				b = c;
@@ -409,8 +400,6 @@ class TelnetSocket : ISink {
 		switch (type) {
 			case -1:
 				auto str = safeDecodeString(_encoding, value);
-				std.stdio.writeln("received: [", str, "]");
-				debugWrite(value);
 				_dataQueue.insertBack(str);
 				break;
 			case TerminalType:
@@ -462,16 +451,16 @@ class TelnetSocket : ISink {
 
 	private void onConnect() {
 		/*
-		_sock.send([
-			IAC, WILL, cast(ubyte)SuppressGoAhead,
-			IAC, DO, cast(ubyte)SuppressGoAhead,
-			IAC, DO, cast(ubyte)WindowSize,
-			IAC, WILL, cast(ubyte)Charset,
-			IAC, DO, cast(ubyte)TerminalType,
-			IAC, WILL, cast(ubyte)GMCP,
-			IAC, WILL, cast(ubyte)MSSP,
-			IAC, WILL, cast(ubyte)EndOfRecord,
-		]);
-		*/
+		 _sock.send([
+		 IAC, WILL, cast(ubyte)SuppressGoAhead,
+		 IAC, DO, cast(ubyte)SuppressGoAhead,
+		 IAC, DO, cast(ubyte)WindowSize,
+		 IAC, WILL, cast(ubyte)Charset,
+		 IAC, DO, cast(ubyte)TerminalType,
+		 IAC, WILL, cast(ubyte)GMCP,
+		 IAC, WILL, cast(ubyte)MSSP,
+		 IAC, WILL, cast(ubyte)EndOfRecord,
+		 ]);
+		 */
 	}
 }
