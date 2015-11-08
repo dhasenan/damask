@@ -16,8 +16,6 @@ import dmud.log;
 import dmud.telnet_socket;
 import dmud.time;
 
-const longString = "On the other hand, we denounce with righteous indignation and dislike men who are so beguiled and demoralized by the charms of pleasure of the moment, so blinded by desire, that they cannot foresee the pain and trouble that are bound to ensue; and equal blame belongs to those who fail in their duty through weakness of will, which is the same as saying through shrinking from toil and pain. These cases are perfectly simple and easy to distinguish. In a free hour, when our power of choice is untrammelled and when nothing prevents our being able to do what we like best, every pleasure is to be welcomed and every pain avoided. But in certain circumstances and owing to the claims of duty or the obligations of business it will frequently occur that pleasures have to be repudiated and annoyances accepted. The wise man therefore always holds in these matters to this principle of selection: he rejects pleasures to secure other greater pleasures, or else he endures pains to avoid worse pains.";
-
 class PlayerInputBehavior : Behavior {
 	Queue!string commands;
 	Behavior child;
@@ -72,14 +70,16 @@ class PlayerBehavior : Behavior {
 			auto tail = parts.tail.strip.toLower;
 
 			// Room exits take priority.
-			if (player.mob.room) {
+			if (player.room) {
 				logger.info("checking for exits");
-				foreach (exit; player.mob.room.exits) {
+				foreach (exit; player.room.exits) {
 					logger.infof("checking exit toward %s", exit.name);
 					if (exit.identifiedBy(parts.head)) {
 						logger.infof("moving player to room %s", exit.target.id);
-						player.mob.room = exit.target;
+						player.room = exit.target;
+						player.write(player.room.lookAt(player));
 						logger.info("player has been moved");
+						telnet.writeln("");
 						continue mainLoop;
 					}
 				}
@@ -91,16 +91,17 @@ class PlayerBehavior : Behavior {
 			auto commandsPtr = parts.head in Command.allCommands;
 			if (!commandsPtr) {
 				telnet.writeln("Huh?");
+				telnet.writeln("");
 				continue;
 			}
 			Command selected;
 			foreach (cmd; *commandsPtr) {
-				if (cmd.applicable(player.mob)) {
+				if (cmd.applicable(player)) {
 					if (selected) {
 						// Two applicable commands. What do?
 						logger.errorf("Found two overlapping commands for name '%s'. Player '%s' at room '%s' " ~
 							"experienced this problem. Command 1: %s. Command 2: %s.",
-							parts.head, player.name, player.mob.room.id, selected.id, cmd.id);
+							parts.head, player.name, player.room.id, selected.id, cmd.id);
 						telnet.writeln("There are two or more commands matching your input.");
 						telnet.writeln("I'm really confused about this, and I'm logging your situation for devs " ~
 							"to investigate.");
@@ -110,7 +111,8 @@ class PlayerBehavior : Behavior {
 				}
 			}
 			if (selected) {
-				selected.act(player.mob, parts.tail);
+				selected.act(player, parts.tail);
+				telnet.writeln("");
 			}
 			// TODO: how long do we yield *for*?
 			// Need to create a scheduler, command tells how long it takes, etc.
@@ -163,16 +165,10 @@ class WelcomeProcessor : InputProcessor {
 	void startPlayer(Player player, TelnetSocket telnet) {
 		this.player = player;
 		auto behavior = new PlayerBehavior(player, telnet);
-		if (!player.mob) {
-			// TODO: load default mob.
-			player.mob = new Mob();
-			player.mob.name = player.name;
-			player.mob.description = "Just this hominid, you know.";
-		}
-		player.mob.behavior = behavior;
-		player.mob.telnet = telnet;
-		if (player.mob.room is null) {
-			player.mob.room = World.current.startingRoom;
+		player.behavior = behavior;
+		player.telnet = telnet;
+		if (player.room is null) {
+			player.room = World.current.startingRoom;
 		}
 		scheduler.spawn(&behavior.run);
 	}
@@ -216,12 +212,10 @@ class WelcomeProcessor : InputProcessor {
 }
 
 /// A player. Not necessarily in the game right now.
-class Player {
+class Player : Mob {
 	static Player[string] byName;
-	string name;
 	ubyte[] passwordHash;
 	bool admin;
-	Mob mob;  /// The mob this player controls.
 	bool playing;
 	TelnetSocket telnet;
 
@@ -248,24 +242,27 @@ class Player {
 		if (!name && !passwordHash) {
 			password = pass;
 			name = username;
-			mob = new Mob();
-			mob.name = username;
-			mob.id = "/players/" ~ name;
-			mob.description = "A new player. Be gentle.";
-			mob.telnet = telnet;
+			id = "/players/" ~ name;
+			description = "A new player. Be gentle.";
+			telnet = socket;
 			return true;
 		}
 		if (name == username && passwordEqual(pass)) {
 			this.telnet = socket;
-			if (!mob) {
-				mob = new Mob();
-				mob.name = username;
-				mob.id = "/players/" ~ name;
-				mob.description = "A new player. Be gentle.";
-				mob.telnet = telnet;
-			}
 			return true;
 		}
 		return false;
+	}
+
+	override void write(string value) {
+		if (telnet) {
+			telnet.write(value);
+		}
+	}
+
+	override void writeln(string value) {
+		if (telnet) {
+			telnet.writeln(value);
+		}
 	}
 }

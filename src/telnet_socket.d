@@ -239,6 +239,7 @@ class TelnetSocket {
 
 	void close() {
 		closed = true;
+		_sock.close();
 	}
 
 	enum : ubyte {

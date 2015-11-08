@@ -1,6 +1,11 @@
 module dmud.domain;
 
-import std.uni, std.string;
+import std.algorithm;
+import std.datetime;
+import std.range;
+import std.string;
+import std.uni;
+
 import dmud.log;
 import dmud.telnet_socket;
 
@@ -57,7 +62,7 @@ class MudObj {
 		return false;
 	}
 
-	string lookAt() {
+	string lookAt(Mob mob) {
 		return description;
 	}
 }
@@ -92,6 +97,22 @@ class Room : MudObj {
 	Mob[] mobs;
 	Item[] items;
 	Exit[] exits;
+
+	override string lookAt(Mob mob) {
+		// TODO visibility (which items can I see? which mobs? are any exits hidden?)
+		return name ~ '\n' ~
+			description ~ '\n' ~
+			line("Exits", exits) ~
+			line("Mobs", mobs.filter!(x => x !is mob)) ~
+			line("Items", items);
+	}
+
+	// TODO: color
+	// TODO: omit player from mob list
+	string line(T)(string id, T items) {
+		if (items.empty) return "";
+		return id ~ ": " ~ items.map!(x => x.name).join(", ") ~ '\n';
+	}
 }
 
 class Behavior {
@@ -104,19 +125,10 @@ class Mob : MudObj {
 	Room room;
 	Item[] inventory;
 	Behavior behavior;
-	TelnetSocket telnet;
-	
-	void write(string value) {
-		if (telnet) {
-			telnet.write(value);
-		}
-	}
-	
-	void writeln(string value) {
-		if (telnet) {
-			telnet.writeln(value);
-		}
-	}
+
+	void write(string value) {}
+
+	void writeln(string value) {}
 }
 
 /* TODO what kind of separation do I want between the base definition of the world and its
@@ -148,10 +160,27 @@ class Zone : MudObj {
 }
 
 
+class NewsItem {
+	string id;
+	string news;
+	SysTime date;
+
+	this() {}
+
+	this(SysTime date, string news) {
+		this.date = date;
+		this.news = news;
+	}
+}
+
 class World {
 	static World current;
 	Mob[string] mobs;
 	Zone[string] zones;
 	Item[string] items;
 	Room startingRoom;
+
+	string name;
+	string banner;
+	NewsItem[] news;
 }

@@ -1,0 +1,101 @@
+There's just so much to do, I'm not sure why I'm writing a todo list.
+
+Basic functionality
+===================
+* Movement: look when you move.
+* Login: look when you log in.
+* Looking: display room exits.
+* Mobs: come up with a default mob behavior. At least enough to wander around and say some stuff
+  occasionally.
+* Load data from files.
+
+Scripting
+=========
+Option 1: incorporate a scripting engine.
+ * Revive MiniD or create Croc bindings
+ * DMDScript
+ * Lua (two bindings exist)
+ * Scheme (native implementation exists)
+ * Wren
+
+Option 2: add a lightweight scripting interface on top of existing command parser.
+ * Need triggers and loops.
+ * This only helps with things acting within the world.
+ * I would also need something to control procedural generation and that kind of thing.
+
+So let's say I integrate a scripting language. How do I make it easy to run mob commands in it?
+That is, my primary interface is going to be a scripting language, so I want to make it easy and
+lightweight to call mud commands to be parsed like player input.
+
+Of the available scripting languages, Lua isn't good at object orientation, so it's not ideal.
+DMDScript is just as bad, plus it's got the evils of javascript, so it's kind of terrible. Scheme is
+hard to read and I don't think it's object oriented. That leaves MiniD/Croc or Wren.
+
+All right, so I can do something like...
+  var mob = ...;
+	var target = mob.room.mobs[0];
+	mob("kill", target);
+	// some complex command that's hard to emulate...
+	mob("bodge plank 1 on lathe using pattern from book 1")
+
+
+OLC
+===
+Online creation should be utterly straightforward. I need an editor of some sort, of course, but
+beyond that it's just a simple menu-based editor interface.
+
+
+Skills
+======
+I need a skill system. That also means an experience system.
+
+I want skill trees. I want a point buy system where you trade experience for skill advancements.
+
+
+Combat
+======
+It's a staple of MUDs and games in general. It's an item sink if done carefully -- but if you don't
+want to annoy players, you probably need a pretty low crafting requirement per encounter. That means
+items lose durability slowly, 
+
+
+Color
+=====
+Every client should support ANSI color codes. Some might support additional colors, but that will be
+with MXP.
+
+
+Persistence
+===========
+I need to decide between flat files, embedded database, system database, or hybrid.
+
+I want a turnkey operation. That pretty much rules out a requirement on a system database (though I
+could use a config option to switch between system and embedded).
+
+Do I want to store the bulk of world data in an embedded database or not? (I do have to store
+player data in a different database, of course.)
+
+DB pros: I can more easily support editing large zones. You have only one world file to back up.
+Coordinated changes are saved more reliably. I can load part of a MUD more easily. I can do OLC more
+cheaply. I have fewer problems with saving players or anything in general, with fewer pauses that
+could interrupt users.
+
+DB cons: It's harder to recover from database corruption. I have to write a DB wrapper for some
+embedded nosql database like UnQLite.
+
+JSON pros: I can use a text editor for the world, not just OLC.
+
+JSON cons: Huge heap of allocations whenever I need to save anything. If I try to eliminate that, I
+need to shard things. Sharding takes effort, and I may well run into filesystem limitations if I
+take it too far.
+
+KV store pros: Mostly like DB pros.
+
+KV store cons: I have no querying support. This means I get only one index and I have to be clever
+about it. Specifically, I want to query by zone, so I need to be able to run a prefix scan by
+primary key. So I can only have a nested collection of indices, unless I want to maintain a separate
+index somewhere.
+
+What I think I'll do for now is LevelDB, one file per zone, one player file, and one master file.
+Furthermore, I'd like to have automated backups of each of these (daily?) and staging and production
+versions.

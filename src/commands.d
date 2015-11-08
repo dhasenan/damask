@@ -3,6 +3,7 @@ module dmud.commands;
 import std.string;
 
 import dmud.domain;
+import dmud.player;
 import dmud.except;
 import dmud.log;
 import dmud.time;
@@ -51,6 +52,17 @@ abstract class Command {
 	bool applicable(MudObj obj) { return true; }
 }
 
+class Quit : Command {
+	override void doAct(MudObj self, string target) {
+		logger.infof("%s is quitting", self.name);
+		auto mob = cast(Player) self;
+		if (mob && mob.telnet) {
+			mob.writeln("Be seeing you.");
+			mob.telnet.close;
+		}
+	}
+}
+
 class Look : Command {
 	override void doAct(MudObj self, string target) {
 		target = target.strip;
@@ -67,7 +79,7 @@ class Look : Command {
 			dmud.log.logger.info("looking at the room");
 			if (mob.room) {
 				dmud.log.logger.info("we do have a room");
-				mob.writeln(mob.room.lookAt);
+				mob.writeln(mob.room.lookAt(mob));
 			} else {
 				dmud.log.logger.info("no room");
 				mob.writeln("You are in an empty void.");
@@ -80,7 +92,7 @@ class Look : Command {
 		foreach (item; mob.inventory) {
 			if (item.identifiedBy(target)) {
 				dmud.log.logger.info("found item!");
-				mob.writeln(item.lookAt);
+				mob.writeln(item.lookAt(mob));
 				return;
 			}
 		}
@@ -89,6 +101,13 @@ class Look : Command {
 	}
 }
 
+class News : Command {
+	override void doAct(MudObj self, string target) {
+		//auto n = World.current.news.filter!(x => )
+	}
+}
+
 static this() {
 	Command.register(new Look(), "look", "l");
+	Command.register(new Quit(), "quit");
 }
