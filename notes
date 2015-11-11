@@ -87,7 +87,8 @@ JSON pros: I can use a text editor for the world, not just OLC.
 
 JSON cons: Huge heap of allocations whenever I need to save anything. If I try to eliminate that, I
 need to shard things. Sharding takes effort, and I may well run into filesystem limitations if I
-take it too far.
+take it too far. Even if I solve that problem, D's JSON parser is pretty strict. A strict parser is
+unfriendly to humans.
 
 KV store pros: Mostly like DB pros.
 
@@ -99,3 +100,14 @@ index somewhere.
 What I think I'll do for now is LevelDB, one file per zone, one player file, and one master file.
 Furthermore, I'd like to have automated backups of each of these (daily?) and staging and production
 versions.
+
+
+General program structure
+=========================
+ECS all the way.
+
+I wanted an event broker. Why did I want it? Why not a coupled event system referencing global
+events?
+  Well, I was thinking multitenancy. But multitenancy is pain. I'm not doing it.
+	So I'll just use an event type.
+

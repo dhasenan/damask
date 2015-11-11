@@ -1,5 +1,6 @@
 module dmud.telnet_socket;
 
+import dmud.component;
 import dmud.domain;
 
 import core.thread;
@@ -150,6 +151,23 @@ unittest {
 }
 
 
+class Writer : Component {
+	TelnetSocket telnet;
+
+	void write(string value) {
+		if (telnet) {
+			telnet.write(value);
+		}
+	}
+
+	void writeln(string value) {
+		if (telnet) {
+			telnet.writeln(value);
+		}
+	}
+}
+
+
 /// A telnet socket is a socket that can communicate via telnet.
 class TelnetSocket {
 	bool closed;
@@ -163,37 +181,39 @@ class TelnetSocket {
 		bool _shouldGmcp;
 		bool _echo = true;
 
-		static ubyte[] _charsetGreeting;
+		static ubyte[] _charsetGreetingCache;
 		static EncodingScheme[string] _encodings;
-	}
-	static this() {
-		auto ascii = EncodingScheme.create("ascii");
-		_encodings = [
-			"utf-8": EncodingScheme.create("utf-8"),
-			"ascii": ascii,
-			"us-ascii": ascii,
-			"iso-8859-1": EncodingScheme.create("ISO-8859-1"),
-			"utf-32le": EncodingScheme.create("utf-32le"),
-		];
-		int len = 0;
-		auto parts = new ubyte[][_encodings.length];
-		foreach (i, k; _encodings.keys) {
-			parts[i] = toBytes(ascii, k);
-			len++;
-			len += parts[i].length;
+		static ubyte[] _charsetGreeting() {
+			if (_charsetGreetingCache) return _charsetGreetingCache;
+			auto ascii = EncodingScheme.create("ascii");
+			_encodings = [
+				"utf-8": EncodingScheme.create("utf-8"),
+				"ascii": ascii,
+				"us-ascii": ascii,
+				"iso-8859-1": EncodingScheme.create("ISO-8859-1"),
+				"utf-32le": EncodingScheme.create("utf-32le"),
+				];
+			int len = 0;
+			auto parts = new ubyte[][_encodings.length];
+			foreach (i, k; _encodings.keys) {
+				parts[i] = toBytes(ascii, k);
+				len++;
+				len += parts[i].length;
+			}
+			_charsetGreetingCache = new ubyte[6 + len];
+			_charsetGreetingCache[0..4] = [IAC, SB, cast(ubyte)Charset, cast(ubyte)1];
+			ubyte sep = 59;  // ASCII semicolon ';'
+			auto s = 4;
+			foreach (part; parts) {
+				_charsetGreetingCache[s] = sep;
+				s++;
+				_charsetGreetingCache[s..s+part.length] = part[0..$];
+				s += part.length;
+			}
+			_charsetGreetingCache[$-2] = IAC;
+			_charsetGreetingCache[$-1] = SB;
+			return _charsetGreetingCache;
 		}
-		_charsetGreeting = new ubyte[6 + len];
-		_charsetGreeting[0..4] = [IAC, SB, cast(ubyte)Charset, cast(ubyte)1];
-		ubyte sep = 59;  // ASCII semicolon ';'
-		auto s = 4;
-		foreach (part; parts) {
-			_charsetGreeting[s] = sep;
-			s++;
-			_charsetGreeting[s..s+part.length] = part[0..$];
-			s += part.length;
-		}
-		_charsetGreeting[$-2] = IAC;
-		_charsetGreeting[$-1] = SB;
 	}
 
 	this(Socket socket, size_t bufferSize = 1024) {

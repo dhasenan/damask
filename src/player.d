@@ -3,13 +3,14 @@ module dmud.player;
 import core.thread;
 import std.concurrency;
 import std.digest.sha;
-import std.experimental.logger;
 import std.string;
 import std.stdio;
 import std.typecons;
 import std.uni;
+import tango.text.convert.Format;
 
 import dmud.commands;
+import dmud.component;
 import dmud.domain;
 import dmud.container;
 import dmud.log;
@@ -51,39 +52,45 @@ auto splitOnce(string str) {
 }
 
 class PlayerBehavior : Behavior {
+	Entity entity;
 	Player player;
 	TelnetSocket telnet;
 
-	this(Player p, TelnetSocket sock) {
-		player = p;
+	this(Entity p, TelnetSocket sock) {
+		entity = p;
+		player = p.get!Player;
 		telnet = sock;
 	}
 
 	void run() {
-		logger.infof("starting player behavior");
+		logger.info("starting player behavior");
 		writeln("starting player behavior!!");
 		mainLoop:
 		while (!telnet.closed) {
 			auto line = telnet.readLine.stripRight;
 			auto parts = line.splitOnce;
-			logger.infof("player command: [%s] [%s]", parts.head, parts.tail);
+			logger.info("player command: [{}] [{}]", parts.head, parts.tail);
 			auto tail = parts.tail.strip.toLower;
+			auto mo = entity.get!MudObj;
 
 			// Room exits take priority.
-			if (player.room) {
-				logger.info("checking for exits");
-				foreach (exit; player.room.exits) {
-					logger.infof("checking exit toward %s", exit.name);
+			if (mo.containing != None) {
+				auto room = mo.containing.get!Room;
+				foreach (exit; room.exits) {
 					if (exit.identifiedBy(parts.head)) {
-						logger.infof("moving player to room %s", exit.target.id);
-						player.room = exit.target;
-						player.write(player.room.lookAt(player));
-						logger.info("player has been moved");
+						auto next = exit.target.get!Room;
+						if (!next) {
+							logger.error("exit {} in room {} leads to {}, which is not a room", exit.name,
+									mo.containing, exit.target);
+							telnet.writeln("You try to go that way but something solid blocks your way.");
+							continue mainLoop;
+						}
+						mo.containing = exit.target;
+						telnet.writeln(next.lookAt(entity));
 						telnet.writeln("");
 						continue mainLoop;
 					}
 				}
-				logger.info("no matching exit");
 			}
 
 			// TODO: aliases
@@ -96,12 +103,12 @@ class PlayerBehavior : Behavior {
 			}
 			Command selected;
 			foreach (cmd; *commandsPtr) {
-				if (cmd.applicable(player)) {
+				if (cmd.applicable(entity)) {
 					if (selected) {
 						// Two applicable commands. What do?
-						logger.errorf("Found two overlapping commands for name '%s'. Player '%s' at room '%s' " ~
-							"experienced this problem. Command 1: %s. Command 2: %s.",
-							parts.head, player.name, player.room.id, selected.id, cmd.id);
+						logger.error("Found two overlapping commands for name '{}'. Player '{}' at room '{}' " ~
+							"experienced this problem. Command 1: {}. Command 2: {}.",
+							parts.head, mo.name, mo.containing, selected.id, cmd.id);
 						telnet.writeln("There are two or more commands matching your input.");
 						telnet.writeln("I'm really confused about this, and I'm logging your situation for devs " ~
 							"to investigate.");
@@ -111,7 +118,7 @@ class PlayerBehavior : Behavior {
 				}
 			}
 			if (selected) {
-				selected.act(player, parts.tail);
+				selected.act(entity, parts.tail);
 				telnet.writeln("");
 			}
 			// TODO: how long do we yield *for*?
@@ -141,35 +148,32 @@ class WelcomeProcessor : InputProcessor {
 				registerNewPlayer(telnet);
 				return;
 			}
-			auto p = first in Player.byName;
+			auto p = Player.loadForInfo(first);
 			if (!p) {
-				telnet.writeln(format("Sorry, no player by that name exists."));
+				telnet.writeln(Format("Sorry, no player by that name exists."));
 				continue;
 			}
-			auto player = *p;
-			telnet.write(format("Enter password for %s: ", first));
+			telnet.write(Format("Enter password for {}: ", first));
 			while (!telnet.closed) {
 				auto pass = telnet.readLine;
-				if (player.passwordEqual(pass)) {
+				if (p.passwordEqual(pass)) {
 					break;
 				}
 				telnet.writeln("Sorry, that's not the right password. Try again.");
 			}
 			// You've logged in! \o/
-			telnet.writeln(format("Welcome back to Damask, %s.", player.name));
-			startPlayer(player, telnet);
+			// We *should* have reloaded your character from the database.
+			auto mo = p.entity.get!MudObj;
+			telnet.writeln(Format("Welcome back to Damask, {}.", mo.name));
+			startPlayer(p, telnet);
 			return;
 		}
 	}
 
 	void startPlayer(Player player, TelnetSocket telnet) {
 		this.player = player;
-		auto behavior = new PlayerBehavior(player, telnet);
-		player.behavior = behavior;
-		player.telnet = telnet;
-		if (player.room is null) {
-			player.room = World.current.startingRoom;
-		}
+		auto behavior = new PlayerBehavior(player.entity, telnet);
+		ComponentManager.instance.add(player.entity, player);
 		scheduler.spawn(&behavior.run);
 	}
 	
@@ -178,13 +182,13 @@ class WelcomeProcessor : InputProcessor {
 		telnet.write("What name do you want? ");
 		while (!telnet.closed) {
 			name = telnet.readLine.strip;
-			if (name in Player.byName) {
+			if (Player.loadForInfo(name)) {
 				telnet.write("That name is already taken. Try again. ");
 				continue;
 			}
 			break;
 		}
-		telnet.writeln(format("Okay, we're calling you %s.", name));
+		telnet.writeln(Format("Okay, we're calling you {}.", name));
 		string pass;
 		while (!telnet.closed) {
 			// TODO: validation -- no punctuation, numbers, etc
@@ -198,12 +202,9 @@ class WelcomeProcessor : InputProcessor {
 				telnet.writeln("Sorry, your passwords didn't match.");
 			}
 		}
-		auto p = new Player();
-		p.password = pass;
-		p.name = name;
-		Player.byName[name] = p;
-		telnet.writeln(format("Welcome to Damask, %s.", name));
-		startPlayer(p, telnet);
+		auto p = Player.create(name, pass, telnet);
+		telnet.writeln(Format("Welcome to Damask, {}.", name));
+		startPlayer(p.get!Player, telnet);
 	}
 	
 	void gmcp(string raw) {
@@ -212,20 +213,45 @@ class WelcomeProcessor : InputProcessor {
 }
 
 /// A player. Not necessarily in the game right now.
-class Player : Mob {
-	static Player[string] byName;
+class Player : Component {
+	private static Player[string] _byName;
+
+	// TODO: real persistence
+	static void loadForLogin(Entity entity, TelnetSocket socket) {
+		assert(false, "not yet implemented");
+	}
+
+	static Player loadForInfo(string name) {
+		if (auto p = name in _byName) {
+			return *p;
+		}
+		return null;
+	}
+
+	static Entity create(string name, string pass, TelnetSocket socket) {
+		// I need a mudobj, a mob (maybe), and news reading thing.
+		auto entity = ComponentManager.instance.next;
+		entity.add!PlayerNewsStatus;
+		with (entity.add!Writer) {telnet = socket;}
+		auto player = entity.add!Player;
+		player.name = name;
+		player.password = pass;
+		_byName[name.toLower] = player;
+		auto mob = entity.add!Mob;
+		auto mo = entity.add!MudObj;
+		mo.name = name;
+		mo.description = "A faceless horror from the Abyss.";
+		_byName[name] = player;
+		auto w = world.get!World;
+		if (w) {
+			mo.containing = w.startingRoom;
+		}
+		return entity;
+	}
+
+	string name;
 	ubyte[] passwordHash;
 	bool admin;
-	bool playing;
-	TelnetSocket telnet;
-
-	static this() {
-		// Testing only!
-		auto p = new Player();
-		p.name = "Todd";
-		p.password = "pass";
-		byName["todd"] = p;
-	}
 
 	void password(string value) {
 		auto hash = sha256Of(value);
@@ -236,33 +262,5 @@ class Player : Mob {
 	bool passwordEqual(string value) {
 		auto hash = sha256Of(value);
 		return hash[0..$] == passwordHash;
-	}
-	
-	bool login(TelnetSocket socket, string username, string pass) {
-		if (!name && !passwordHash) {
-			password = pass;
-			name = username;
-			id = "/players/" ~ name;
-			description = "A new player. Be gentle.";
-			telnet = socket;
-			return true;
-		}
-		if (name == username && passwordEqual(pass)) {
-			this.telnet = socket;
-			return true;
-		}
-		return false;
-	}
-
-	override void write(string value) {
-		if (telnet) {
-			telnet.write(value);
-		}
-	}
-
-	override void writeln(string value) {
-		if (telnet) {
-			telnet.writeln(value);
-		}
 	}
 }

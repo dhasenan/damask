@@ -1,12 +1,16 @@
 module dmud.commands;
 
 import std.string;
+import tango.core.Array;
+import tango.text.convert.Format;
 
+import dmud.component;
 import dmud.domain;
 import dmud.player;
 import dmud.except;
 import dmud.log;
 import dmud.time;
+import dmud.telnet_socket;
 
 abstract class Command {
 	/// Commands indexed by their keyword.
@@ -37,7 +41,7 @@ abstract class Command {
 	string id() { return this.classinfo.name; }
 
 	private int _generation;
-	final void act(MudObj self, string target) {
+	final void act(Entity self, string target) {
 		//		if (self.generation != _generation) {
 		//			return;
 		//		}
@@ -47,63 +51,73 @@ abstract class Command {
 	// How long it takes to do this.
 	Span duration = {1};
 	
-	abstract void doAct(MudObj self, string target);
+	abstract void doAct(Entity self, string target);
 
-	bool applicable(MudObj obj) { return true; }
+	bool applicable(Entity obj) { return true; }
 }
 
 class Quit : Command {
-	override void doAct(MudObj self, string target) {
-		logger.infof("%s is quitting", self.name);
-		auto mob = cast(Player) self;
-		if (mob && mob.telnet) {
-			mob.writeln("Be seeing you.");
-			mob.telnet.close;
+	override void doAct(Entity self, string target) {
+		auto mo = self.get!MudObj;
+		logger.info("{} is quitting", mo.name);
+		auto writer = self.get!Writer;
+		if (writer && writer.telnet) {
+			writer.writeln("Be seeing you.");
+			writer.telnet.close;
 		}
 	}
 }
 
 class Look : Command {
-	override void doAct(MudObj self, string target) {
-		target = target.strip;
-		dmud.log.logger.infof("look: looking at [%s] (%d)", target, target.length);
-		auto mob = cast(Mob)self;
-		dmud.log.logger.info("after the cast");
+	override void doAct(Entity self, string target) {
+		auto writer = self.get!Writer;
+		auto mob = self.get!MudObj;
 		if (!mob) {
-			dmud.log.logger.info("not the mob");
-			// Zones, rooms, items, etc can't look at things.
 			return;
 		}
-		dmud.log.logger.info("have a mob");
+		target = target.strip;
+		auto room = mob.containing.get!Room;
 		if (target == "") {
-			dmud.log.logger.info("looking at the room");
-			if (mob.room) {
-				dmud.log.logger.info("we do have a room");
-				mob.writeln(mob.room.lookAt(mob));
+			if (room) {
+				writer.writeln(room.lookAt(self));
 			} else {
-				dmud.log.logger.info("no room");
-				mob.writeln("You are in an empty void.");
+				writer.writeln("You are in an empty void.");
 			}
 			return;
 		}
-		dmud.log.logger.info("looking for an item");
 		// We need to locate the mudobj in question.
 		// It might be in the player's inventory or in the room.
-		foreach (item; mob.inventory) {
-			if (item.identifiedBy(target)) {
-				dmud.log.logger.info("found item!");
-				mob.writeln(item.lookAt(mob));
+		foreach (item; self.get!Inventory) {
+			auto mo = item.get!(MudObj);
+			if (mo.identifiedBy(target)) {
+				writer.writeln(mo.lookAt(self));
 				return;
 			}
 		}
-		dmud.log.logger.info("no match");
-		mob.writeln("I don't see that here.");
+		writer.writeln("I don't see that here.");
 	}
 }
 
 class News : Command {
-	override void doAct(MudObj self, string target) {
-		//auto n = World.current.news.filter!(x => )
+	override void doAct(Entity self, string target) {
+		auto news = world.get!AllNews;
+		auto writer = self.get!Writer;
+		if (!news) {
+			writer.writeln("No news is good news!");
+			return;
+		}
+		auto read = self.get!PlayerNewsStatus;
+		auto lastRead = news.news.findIf((NewsItem x) => x.id == read.lastRead);
+		if (lastRead == news.news.length) {
+			lastRead = -1;
+		}
+		if (lastRead >= news.news.length - 1) {
+			writer.writeln("No news, only olds! Ah ha ha, I kill me.");
+			return;
+		}
+		auto ni = news.news[lastRead + 1];
+		writer.writeln(Format("News as of {}:\n{}", ni.date, ni.news));
+		read.lastRead = ni.id;
 	}
 }
 

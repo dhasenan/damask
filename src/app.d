@@ -13,6 +13,7 @@ import std.experimental.logger;
 import std.stdio;
 import std.socket;
 import etc.linux.memoryerror;
+import tango.core.tools.TraceExceptions;
 
 int main(string[] args)
 {
@@ -21,20 +22,14 @@ int main(string[] args)
 		registerMemoryErrorHandler();
 	}
 
-	// Set up logging.
-	auto log = new MultiLogger();
-	log.insertLogger("stdout", new FileLogger(std.stdio.stdout, LogLevel.trace));
-	log.insertLogger("file", new FileLogger("dmud.log", LogLevel.info));
-	dmud.log.logger = log;
-
 	// Load the world.
-	World.current = loadAll("");
+	loadAll("");
 
 	// Start listening.
 	ushort port = 5005;
 	scheduler = new FiberScheduler();
 	auto server = new Server(port);
-	logger.infof("listening on port %d", port);
+	logger.info("listening on port {}", port);
 
 	// Start the scheduler (by giving it an empty task).
 	scheduler.start(() {});
