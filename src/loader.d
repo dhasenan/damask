@@ -13,12 +13,6 @@ import std.file;
 import std.json;
 import std.string;
 
-unittest {
-	import std.string;
-
-	assert("foo" == "  foo  ".strip);
-}
-
 void loadAll(string p) {
 	// Directory layout:
 	// mymud/
@@ -71,7 +65,7 @@ void loadAll(string p) {
 			auto j = s.parseJSON;
 			ni.id = k.as!string;
 			ni.news = j["news"].str;
-			ni.date = SysTime.fromISOString(j["date"].str);
+			ni.date = parseDateAndTime(j["date"].str);
 			news ~= ni;
 		}
 		news.sort!((a, b) => a.date < b.date);

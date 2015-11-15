@@ -2,12 +2,15 @@ There's just so much to do, I'm not sure why I'm writing a todo list.
 
 Basic functionality
 ===================
-* Movement: look when you move.
-* Login: look when you log in.
-* Looking: display room exits.
-* Mobs: come up with a default mob behavior. At least enough to wander around and say some stuff
-  occasionally.
-* Load data from files.
+[ ] Movement: look when you move.
+[ ] Login: look when you log in.
+[x] Looking: display room exits.
+[ ] Inventory and getting / dropping items
+[ ] Wearing and wielding items
+[ ] Mobs: come up with a default mob behavior. At least enough to wander around and say some stuff
+    occasionally.
+[ ] Load and save real data.
+[ ] Dead simple OLC.
 
 Scripting
 =========

@@ -102,26 +102,37 @@ class News : Command {
 	override void doAct(Entity self, string target) {
 		auto news = world.get!AllNews;
 		auto writer = self.get!Writer;
-		if (!news) {
+		if (!news || !news.news) {
 			writer.writeln("No news is good news!");
 			return;
 		}
 		auto read = self.get!PlayerNewsStatus;
-		auto lastRead = news.news.findIf((NewsItem x) => x.id == read.lastRead);
-		if (lastRead == news.news.length) {
-			lastRead = -1;
+		foreach (ni; news.news) {
+			logger.info("have news item {}", ni.id);
 		}
-		if (lastRead >= news.news.length - 1) {
-			writer.writeln("No news, only olds! Ah ha ha, I kill me.");
-			return;
+		NewsItem ni;
+		if (!read.lastRead) {
+			ni = news.news[0];
 		}
-		auto ni = news.news[lastRead + 1];
-		writer.writeln(Format("News as of {}:\n{}", ni.date, ni.news));
-		read.lastRead = ni.id;
+		else {
+			auto lastRead = news.news.findIf((NewsItem x) => x.id >= read.lastRead);
+			logger.info("news: total {} news items; player last read {} at {}", news.news.length, lastRead,
+					read.lastRead);
+			if (lastRead == news.news.length - 1) {
+				writer.writeln("No news, only olds! Ah ha ha, I kill me.");
+				return;
+			}
+			ni = news.news[lastRead + 1];
+		}
+		if (ni) {
+			writer.writeln(Format("News as of {}:\n{}", ni.date, ni.news));
+			read.lastRead = ni.id;
+		}
 	}
 }
 
 static this() {
 	Command.register(new Look(), "look", "l");
 	Command.register(new Quit(), "quit");
+	Command.register(new News(), "news");
 }

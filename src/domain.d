@@ -6,6 +6,8 @@ import std.range;
 import std.string;
 import std.uni;
 
+import tango.time.Time;
+
 import dmud.component;
 import dmud.log;
 import dmud.telnet_socket;
@@ -178,6 +180,7 @@ class NewsItem {
 	this(SysTime date, string news) {
 		this.date = date;
 		this.news = news;
+		this.id = date.toSimpleString();
 	}
 }
 

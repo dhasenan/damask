@@ -13,7 +13,6 @@ import std.experimental.logger;
 import std.stdio;
 import std.socket;
 import etc.linux.memoryerror;
-import tango.core.tools.TraceExceptions;
 
 int main(string[] args)
 {
