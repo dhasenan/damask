@@ -2,6 +2,7 @@ module dmud.telnet_socket;
 
 import dmud.component;
 import dmud.domain;
+import dmud.util;
 
 import core.thread;
 
@@ -11,61 +12,28 @@ import std.encoding;
 import std.signals;
 import std.socket;
 import std.string;
-import std.concurrency;
 import std.uni;
 
-struct Event(T...) {
+@trusted struct Event(T...) {
 	mixin Signal!T;
 }
 
-string safeDecodeString(EncodingScheme encoding, const(ubyte)[] value) {
-	auto c = new char[value.length];
-	c.length = 0;
-	while (value && value.length) {
-		auto d = encoding.safeDecode(value);
-		if (d != INVALID_SEQUENCE && d != 0) {
-			c ~= d;
-		}
-	}
-	return cast(string)c;
-}
+const EncodingScheme ascii;
+const EncodingScheme iso8859_1;
+const EncodingScheme utf8;
+const EncodingScheme utf32;
 
-unittest {
-	ubyte[] b = [84, 111, 100, 100, 13, 10];
-	assert(safeDecodeString(EncodingScheme.create("ascii"), b) == "Todd\r\n");
-}
-
-ubyte[] toBytes(EncodingScheme encoding, string str) {
-	size_t len = 0;
-	foreach (dchar d; str) {
-		len += encoding.encodedLength(d);
-	}
-	auto a = new ubyte[len];
-	auto b = a;
-	foreach (dchar d; str) {
-		auto s = encoding.encode(d, b);
-		b = b[s..$];
-	}
-	return a;
-}
-
-ubyte[] toAscii(string str) {
-	return toBytes(EncodingScheme.create("ascii"), str);
-}
-
-void debugWrite(ubyte[] v) {
-	std.stdio.write("[");
-	for (int i = 0; i < v.length; i++) {
-		if (i) {
-			std.stdio.write(", ");
-		}
-		std.stdio.write(v[i]);
-	}
-	std.stdio.write("]\n");
+static this() {
+	ascii = EncodingScheme.create("ascii");
+	utf8 = EncodingScheme.create("utf-8");
+	iso8859_1 = EncodingScheme.create("ISO-8859-1");
+	utf32 = EncodingScheme.create("utf-32le");
 }
 
 
-void wrap(string value, int width, EncodingScheme encoding, void delegate(dchar) output) {
+// this is @trusted for now -- need to rework output function
+void wrap()(string value, int width, const EncodingScheme encoding, void delegate(dchar) output) @trusted
+{
 	value = value.normalize!NFD;
 	auto len = 0;
 	dchar last = dchar.max;
@@ -138,15 +106,66 @@ void wrap(string value, int width, EncodingScheme encoding, void delegate(dchar)
 	}
 }
 
+@safe:
+
+@trusted string safeDecodeString(const EncodingScheme encoding, const(ubyte)[] value) {
+	// Trusted because safeDecode isn't safe and because, when we create a char[] locally, we aren't
+	// allowed to say it's a string.
+	auto c = new char[value.length];
+	c.length = 0;
+	while (value && value.length) {
+		auto d = encoding.safeDecode(value);
+		if (d != INVALID_SEQUENCE && d != 0) {
+			c ~= d;
+		}
+	}
+	return cast(string)c;
+}
+
+unittest {
+	ubyte[] b = [84, 111, 100, 100, 13, 10];
+	assert(safeDecodeString(EncodingScheme.create("ascii"), b) == "Todd\r\n");
+}
+
+ubyte[] toBytes(const EncodingScheme encoding, string str) @trusted // trusted until std.encoding changes
+{
+	size_t len = 0;
+	foreach (dchar d; str) {
+		len += encoding.encodedLength(d);
+	}
+	auto a = new ubyte[len];
+	auto b = a;
+	foreach (dchar d; str) {
+		auto s = encoding.encode(d, b);
+		b = b[s..$];
+	}
+	return a;
+}
+
+ubyte[] toAscii(string str) {
+	return toBytes(ascii, str);
+}
+
+void debugWrite(ubyte[] v) {
+	std.stdio.write("[");
+	for (int i = 0; i < v.length; i++) {
+		if (i) {
+			std.stdio.write(", ");
+		}
+		std.stdio.write(v[i]);
+	}
+	std.stdio.write("]\n");
+}
+
 unittest {
 	string s;
 	auto target = "On the other hand, we denounce with righteous indignation and dislike men who are so beguiled and demoralized";
-	wrap(target, 25, EncodingScheme.create("ascii"), (dchar d) { s ~= d; }); 
+	wrap(target, 25, ascii, (dchar d) { s ~= d; }); 
 	assert(s == "On the other hand, we\r\ndenounce with righteous\r\nindignation and dislike\r\nmen who are so beguiled\r\nand demoralized");
 	
 	auto endsWithNewline = "On the first day\n";
 	s = "";
-	wrap(endsWithNewline, 25, EncodingScheme.create("ascii"), (dchar d) { s ~= d; });
+	wrap(endsWithNewline, 25, ascii, (dchar d) { s ~= d; });
 	assert(s == "On the first day\r\n");
 }
 
@@ -174,7 +193,7 @@ class TelnetSocket {
 
 	private {
 		Socket _sock;
-		EncodingScheme _encoding;
+		const(EncodingScheme) _encoding;
 		ubyte[] _writeBuffer;
 		string _terminalType;
 		uint _width = 80, _height = 23;
@@ -182,23 +201,24 @@ class TelnetSocket {
 		bool _echo = true;
 
 		static ubyte[] _charsetGreetingCache;
-		static EncodingScheme[string] _encodings;
+		static const(EncodingScheme)[string] _encodings;
 		static ubyte[] _charsetGreeting() {
 			if (_charsetGreetingCache) return _charsetGreetingCache;
-			auto ascii = EncodingScheme.create("ascii");
 			_encodings = [
-				"utf-8": EncodingScheme.create("utf-8"),
+				"utf-8": utf8,
 				"ascii": ascii,
 				"us-ascii": ascii,
-				"iso-8859-1": EncodingScheme.create("ISO-8859-1"),
-				"utf-32le": EncodingScheme.create("utf-32le"),
+				"iso-8859-1": iso8859_1,
+				"utf-32le": utf32,
 				];
 			int len = 0;
 			auto parts = new ubyte[][_encodings.length];
-			foreach (i, k; _encodings.keys) {
+			size_t i = 0;
+			foreach (string k, const(EncodingScheme) v; _encodings) {
 				parts[i] = toBytes(ascii, k);
 				len++;
 				len += parts[i].length;
+				i++;
 			}
 			_charsetGreetingCache = new ubyte[6 + len];
 			_charsetGreetingCache[0..4] = [IAC, SB, cast(ubyte)Charset, cast(ubyte)1];
@@ -219,7 +239,7 @@ class TelnetSocket {
 	this(Socket socket, size_t bufferSize = 1024) {
 		_sock = socket;
 		_sock.blocking = false;
-		_encoding = EncodingScheme.create("ascii");
+		_encoding = ascii;
 		_writeBuffer = new ubyte[bufferSize];
 		onConnect();
 	}
@@ -234,7 +254,7 @@ class TelnetSocket {
 		}
 	}
 
-	void write(string value) {
+	void write(string value) @trusted /* for std.encoding */ {
 		auto len = 0;
 		void output(dchar v) {
 			auto c = _encoding.encodedLength(v);
@@ -293,7 +313,7 @@ class TelnetSocket {
 		string s = "";
 		while (!closed) {
 			while (_dataQueue.empty) {
-				scheduler.yield();
+				yield();
 			}
 			auto item = _dataQueue.front;
 			_dataQueue.removeFront();

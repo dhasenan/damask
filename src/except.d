@@ -1,5 +1,7 @@
 ﻿module dmud.except;
 
+@safe:
+
 class ArgumentException : Exception {
 	this(string argument) {
 		super("Invalid argument '" ~ argument ~ "'");

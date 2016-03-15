@@ -1,16 +1,19 @@
 module dmud.commands;
 
+import std.algorithm;
+import std.format;
 import std.string;
-import tango.core.Array;
+import std.experimental.logger;
 import tango.text.convert.Format;
 
 import dmud.component;
 import dmud.domain;
 import dmud.player;
 import dmud.except;
-import dmud.log;
 import dmud.time;
 import dmud.telnet_socket;
+
+@safe:
 
 abstract class Command {
 	/// Commands indexed by their keyword.
@@ -59,7 +62,7 @@ abstract class Command {
 class Quit : Command {
 	override void doAct(Entity self, string target) {
 		auto mo = self.get!MudObj;
-		logger.info("{} is quitting", mo.name);
+		info("%s is quitting", mo.name);
 		auto writer = self.get!Writer;
 		if (writer && writer.telnet) {
 			writer.writeln("Be seeing you.");
@@ -108,15 +111,15 @@ class News : Command {
 		}
 		auto read = self.get!PlayerNewsStatus;
 		foreach (ni; news.news) {
-			logger.info("have news item {}", ni.id);
+			info("have news item %s", ni.id);
 		}
 		NewsItem ni;
 		if (!read.lastRead) {
 			ni = news.news[0];
 		}
 		else {
-			auto lastRead = news.news.findIf((NewsItem x) => x.id >= read.lastRead);
-			logger.info("news: total {} news items; player last read {} at {}", news.news.length, lastRead,
+			auto lastRead = news.news.countUntil!((NewsItem x) => x.id >= read.lastRead);
+			info("news: total %s news items; player last read %s at %s", news.news.length, lastRead,
 					read.lastRead);
 			if (lastRead == news.news.length - 1) {
 				writer.writeln("No news, only olds! Ah ha ha, I kill me.");
@@ -125,7 +128,7 @@ class News : Command {
 			ni = news.news[lastRead + 1];
 		}
 		if (ni) {
-			writer.writeln(Format("News as of {}:\n{}", ni.date, ni.news));
+			writer.writeln(format("News as of %s:\n%s", ni.date, ni.news));
 			read.lastRead = ni.id;
 		}
 	}

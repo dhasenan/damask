@@ -12,6 +12,8 @@ import dmud.component;
 import dmud.log;
 import dmud.telnet_socket;
 
+@safe:
+
 class MudObj : Component {
 	/// User-visible name for the object. What they see when they look at it.
 	/// Example: "The Reverend", "bodging knife", "The Inn at the Market"
@@ -79,12 +81,12 @@ struct Exit {
 		if (name.toLower == str.toLower) {
 			return true;
 		}
-		logger.info("[{}] != [{}]", name, str);
+		sharedLog.info("[%s] != [%s]", name, str);
 		foreach (a; aliases) {
 			if (a.toLower == str.toLower) {
 				return true;
 			}
-			logger.info("[{}] != [{}]", a, str);
+			sharedLog.info("[%s] != [%s]", a, str);
 		}
 		return false;
 	}
@@ -161,7 +163,7 @@ class Zone {
 
 class Inventory : Component {
 	Entity[] items;
-	int opApply(int delegate(Entity) dg) {
+	int opApply(int delegate(Entity) @safe dg) {
 		int result = 0;
 		foreach (i; items) {
 			result = dg(i);

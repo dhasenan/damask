@@ -5,6 +5,8 @@ import jsonizer.jsonize;
 import std.conv;
 import std.typecons;
 
+@safe:
+
 alias Entity = Typedef!(ulong, 0, "Entity");
 enum None = cast(Entity)0;
 
@@ -24,7 +26,9 @@ T add(T)(Entity entity, T value) {
 }
 
 class Component {
-	mixin JsonizeMe;
+	@trusted {
+		mixin JsonizeMe;
+	}
 
 	Entity entity;
 	bool canSave = true;
@@ -99,6 +103,7 @@ class ComponentManager {
 		_components.remove(entity);
 	}
 
+	/*
 	const(Component[]) components(Entity entity) {
 		auto p = entity in _components;
 		if (p) { return p.values; }
@@ -109,4 +114,5 @@ class ComponentManager {
 	const(Entity[]) entities() {
 		return _components.keys;
 	}
+	*/
 }

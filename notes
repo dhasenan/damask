@@ -12,6 +12,22 @@ Basic functionality
 [ ] Load and save real data.
 [ ] Dead simple OLC.
 
+
+Zones
+=====
+Do I want zones?
+
+Well, what do zones give me?
+
+* Natural namespacing.
+* A way for assigning / distributing work.
+* A place for permissions to live.
+
+How does it work with the ECS stuff I have?
+
+Well, I need more work to determine which zone something is in.
+
+
 Scripting
 =========
 Option 1: incorporate a scripting engine.

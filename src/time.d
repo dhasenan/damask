@@ -1,5 +1,7 @@
 ﻿module dmud.time;
 
+@safe:
+
 // TODO in-mud calendar; day / night cycle; seasons
 // TODO concrete conversion to real-world time?
 struct Time {

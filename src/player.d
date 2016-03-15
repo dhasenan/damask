@@ -1,13 +1,11 @@
 module dmud.player;
 
-import core.thread;
-import std.concurrency;
 import std.digest.sha;
+import std.format;
 import std.string;
 import std.stdio;
 import std.typecons;
 import std.uni;
-import tango.text.convert.Format;
 
 import dmud.commands;
 import dmud.component;
@@ -16,6 +14,9 @@ import dmud.container;
 import dmud.log;
 import dmud.telnet_socket;
 import dmud.time;
+import dmud.util;
+
+@safe:
 
 class PlayerInputBehavior : Behavior {
 	Queue!string commands;
@@ -27,9 +28,8 @@ abstract class InputProcessor {
 	private Fiber _runFiber;
 	
 	final void run(TelnetSocket telnet) {
-		assert(!!scheduler);
-		scheduler.spawn({
-				_runFiber = Fiber.getThis();
+		spawn({
+				_runFiber = getRunning;
 				doRun(telnet);
 				_runFiber = null;
 			});
@@ -63,13 +63,13 @@ class PlayerBehavior : Behavior {
 	}
 
 	void run() {
-		logger.info("starting player behavior");
+		sharedLog.info("starting player behavior");
 		writeln("starting player behavior!!");
 		mainLoop:
 		while (!telnet.closed) {
 			auto line = telnet.readLine.stripRight;
 			auto parts = line.splitOnce;
-			logger.info("player command: [{}] [{}]", parts.head, parts.tail);
+			sharedLog.info("player command: [%s] [%s]", parts.head, parts.tail);
 			auto tail = parts.tail.strip.toLower;
 			auto mo = entity.get!MudObj;
 
@@ -80,7 +80,7 @@ class PlayerBehavior : Behavior {
 					if (exit.identifiedBy(parts.head)) {
 						auto next = exit.target.get!Room;
 						if (!next) {
-							logger.error("exit {} in room {} leads to {}, which is not a room", exit.name,
+							sharedLog.error("exit %s in room %s leads to %s, which is not a room", exit.name,
 									mo.containing, exit.target);
 							telnet.writeln("You try to go that way but something solid blocks your way.");
 							continue mainLoop;
@@ -106,8 +106,8 @@ class PlayerBehavior : Behavior {
 				if (cmd.applicable(entity)) {
 					if (selected) {
 						// Two applicable commands. What do?
-						logger.error("Found two overlapping commands for name '{}'. Player '{}' at room '{}' " ~
-							"experienced this problem. Command 1: {}. Command 2: {}.",
+						sharedLog.error("Found two overlapping commands for name '%s'. Player '%s' at room " ~
+							"'%s' experienced this problem. Command 1: %s. Command 2: %s.",
 							parts.head, mo.name, mo.containing, selected.id, cmd.id);
 						telnet.writeln("There are two or more commands matching your input.");
 						telnet.writeln("I'm really confused about this, and I'm logging your situation for devs " ~
@@ -123,7 +123,7 @@ class PlayerBehavior : Behavior {
 			}
 			// TODO: how long do we yield *for*?
 			// Need to create a scheduler, command tells how long it takes, etc.
-			scheduler.yield;
+			yield;
 		}
 	}
 }
@@ -150,10 +150,10 @@ class WelcomeProcessor : InputProcessor {
 			}
 			auto p = Player.loadForInfo(first);
 			if (!p) {
-				telnet.writeln(Format("Sorry, no player by that name exists."));
+				telnet.writeln(format("Sorry, no player by that name exists."));
 				continue;
 			}
-			telnet.write(Format("Enter password for {}: ", first));
+			telnet.write(format("Enter password for %s: ", first));
 			while (!telnet.closed) {
 				auto pass = telnet.readLine;
 				if (p.passwordEqual(pass)) {
@@ -164,7 +164,8 @@ class WelcomeProcessor : InputProcessor {
 			// You've logged in! \o/
 			// We *should* have reloaded your character from the database.
 			auto mo = p.entity.get!MudObj;
-			telnet.writeln(Format("Welcome back to Damask, {}.", mo.name));
+			auto w = world.get!World;
+			telnet.writeln(format("Welcome back to %s, %s.", w.name, mo.name));
 			startPlayer(p, telnet);
 			return;
 		}
@@ -172,9 +173,11 @@ class WelcomeProcessor : InputProcessor {
 
 	void startPlayer(Player player, TelnetSocket telnet) {
 		this.player = player;
+		auto w = world.get!World;
+		if (w.banner) telnet.writeln(w.banner);
 		auto behavior = new PlayerBehavior(player.entity, telnet);
 		ComponentManager.instance.add(player.entity, player);
-		scheduler.spawn(&behavior.run);
+		spawn(&behavior.run);
 	}
 	
 	void registerNewPlayer(TelnetSocket telnet) {
@@ -188,7 +191,7 @@ class WelcomeProcessor : InputProcessor {
 			}
 			break;
 		}
-		telnet.writeln(Format("Okay, we're calling you {}.", name));
+		telnet.writeln(format("Okay, we're calling you %s.", name));
 		string pass;
 		while (!telnet.closed) {
 			// TODO: validation -- no punctuation, numbers, etc
@@ -202,8 +205,9 @@ class WelcomeProcessor : InputProcessor {
 				telnet.writeln("Sorry, your passwords didn't match.");
 			}
 		}
+		auto w = world.get!World;
 		auto p = Player.create(name, pass, telnet);
-		telnet.writeln(Format("Welcome to Damask, {}.", name));
+		telnet.writeln(format("Welcome to %s, %s.", w.name, name));
 		startPlayer(p.get!Player, telnet);
 	}
 	

@@ -1,5 +1,7 @@
 module dmud.container;
 
+@safe:
+
 /**
 	* A queue implemented as a circular buffer.
   *
@@ -36,7 +38,7 @@ struct Queue(T, int size = 50) {
 		return count >= size;
 	}
 	
-	int opApply(int delegate(ref T) dg) {
+	int opApply(int delegate(ref T) @safe dg) {
 		int result = 0;
 		for (int i = 0; i < count; i++) {
 			result = dg(array[(i + first) % size]);

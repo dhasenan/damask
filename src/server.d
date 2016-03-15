@@ -1,11 +1,13 @@
 module dmud.server;
 
-import std.concurrency;
 import std.socket;
 import std.stdio;
 
 import dmud.player;
 import dmud.telnet_socket;
+import dmud.util;
+
+@safe:
 
 const SockOption_ReusePort = cast(SocketOption)15;
 
@@ -32,7 +34,7 @@ class Server {
 		ip6.blocking = false;
 		ip6.listen(10);
 		
-		scheduler.spawn({
+		spawn({
 			while (!stopping) {
 				try {
 					auto sock = ip4.accept();
@@ -50,7 +52,7 @@ class Server {
 				} catch (SocketAcceptException e) {
 					// Nothing to do here, move along.
 				}
-				scheduler.yield();
+				yield();
 			}
 		});
 	}
@@ -59,6 +61,6 @@ class Server {
 		auto telnet = new TelnetSocket(sock);
 		auto input = new WelcomeProcessor();
 		input.run(telnet);
-		scheduler.spawn(&telnet.run);
+		spawn(&telnet.run);
 	}
 }
