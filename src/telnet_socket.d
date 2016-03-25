@@ -14,6 +14,8 @@ import std.socket;
 import std.string;
 import std.uni;
 
+@safe:
+
 @trusted struct Event(T...) {
 	mixin Signal!T;
 }
@@ -23,7 +25,7 @@ EncodingScheme iso8859_1;
 EncodingScheme utf8;
 EncodingScheme utf32;
 
-static this() {
+static this() @trusted {
 	ascii = EncodingScheme.create("ascii");
 	utf8 = EncodingScheme.create("utf-8");
 	iso8859_1 = EncodingScheme.create("ISO-8859-1");
@@ -31,8 +33,8 @@ static this() {
 }
 
 
-// this is @trusted for now -- need to rework output function
-void wrap()(string value, int width, const EncodingScheme encoding, void delegate(dchar) output) @trusted
+// @trusted for encoding.canEncode
+void wrap()(string value, int width, const EncodingScheme encoding, void delegate(dchar) @safe output) @trusted
 {
 	value = value.normalize!NFD;
 	auto len = 0;
@@ -160,12 +162,12 @@ void debugWrite(ubyte[] v) {
 unittest {
 	string s;
 	auto target = "On the other hand, we denounce with righteous indignation and dislike men who are so beguiled and demoralized";
-	wrap(target, 25, ascii, (dchar d) { s ~= d; }); 
+	wrap(target, 25, ascii, (dchar d) @safe { s ~= d; }); 
 	assert(s == "On the other hand, we\r\ndenounce with righteous\r\nindignation and dislike\r\nmen who are so beguiled\r\nand demoralized");
 	
 	auto endsWithNewline = "On the first day\n";
 	s = "";
-	wrap(endsWithNewline, 25, ascii, (dchar d) { s ~= d; });
+	wrap(endsWithNewline, 25, ascii, (dchar d) @safe { s ~= d; });
 	assert(s == "On the first day\r\n");
 }
 
@@ -256,7 +258,7 @@ class TelnetSocket {
 
 	void write(string value) @trusted /* for std.encoding */ {
 		auto len = 0;
-		void output(dchar v) {
+		void output(dchar v) @trusted {
 			auto c = _encoding.encodedLength(v);
 			if (c + len >= _writeBuffer.length) {
 				// TODO: we are optimistically assuming that send() will
