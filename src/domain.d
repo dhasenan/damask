@@ -6,8 +6,6 @@ import std.range;
 import std.string;
 import std.uni;
 
-import tango.time.Time;
-
 import dmud.component;
 import dmud.log;
 import dmud.telnet_socket;

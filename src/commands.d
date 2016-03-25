@@ -4,7 +4,6 @@ import std.algorithm;
 import std.format;
 import std.string;
 import std.experimental.logger;
-import tango.text.convert.Format;
 
 import dmud.component;
 import dmud.domain;

@@ -6,7 +6,6 @@
 	"dependencies": {
 		"jsonizer": "~>0.5.1",
 		"subscribed": "~>1.1.1",
-		"tango": "~>1.0.3+2.068",
 		"couch": {
 			"path": "../couche.d"
 		}

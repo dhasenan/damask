@@ -6,7 +6,7 @@ import dmud.util;
 
 import core.thread;
 
-import std.algorithm.iteration;
+import std.algorithm;
 import std.container.dlist;
 import std.encoding;
 import std.signals;
@@ -18,10 +18,10 @@ import std.uni;
 	mixin Signal!T;
 }
 
-const EncodingScheme ascii;
-const EncodingScheme iso8859_1;
-const EncodingScheme utf8;
-const EncodingScheme utf32;
+EncodingScheme ascii;
+EncodingScheme iso8859_1;
+EncodingScheme utf8;
+EncodingScheme utf32;
 
 static this() {
 	ascii = EncodingScheme.create("ascii");
@@ -122,7 +122,7 @@ void wrap()(string value, int width, const EncodingScheme encoding, void delegat
 	return cast(string)c;
 }
 
-unittest {
+@system unittest {
 	ubyte[] b = [84, 111, 100, 100, 13, 10];
 	assert(safeDecodeString(EncodingScheme.create("ascii"), b) == "Todd\r\n");
 }
@@ -193,7 +193,7 @@ class TelnetSocket {
 
 	private {
 		Socket _sock;
-		const(EncodingScheme) _encoding;
+		EncodingScheme _encoding;
 		ubyte[] _writeBuffer;
 		string _terminalType;
 		uint _width = 80, _height = 23;
@@ -201,7 +201,7 @@ class TelnetSocket {
 		bool _echo = true;
 
 		static ubyte[] _charsetGreetingCache;
-		static const(EncodingScheme)[string] _encodings;
+		static EncodingScheme[string] _encodings;
 		static ubyte[] _charsetGreeting() {
 			if (_charsetGreetingCache) return _charsetGreetingCache;
 			_encodings = [
@@ -214,7 +214,7 @@ class TelnetSocket {
 			int len = 0;
 			auto parts = new ubyte[][_encodings.length];
 			size_t i = 0;
-			foreach (string k, const(EncodingScheme) v; _encodings) {
+			foreach (string k, EncodingScheme v; _encodings) {
 				parts[i] = toBytes(ascii, k);
 				len++;
 				len += parts[i].length;
@@ -349,7 +349,7 @@ class TelnetSocket {
 		bool inExtendedCommand = false;
 		int commandType = -1;
 		while (true) {
-			scope (exit) Fiber.yield();
+			scope (exit) yield();
 			auto received = _sock.receive(readBuffer);
 			if (received == 0) {
 				close();
@@ -437,6 +437,18 @@ class TelnetSocket {
 		GMCP = 201
 	}
 
+    private bool isValid(AsciiString s) @trusted
+    {
+        import std.encoding : isValid;
+        return std.encoding.isValid(s);
+    }
+
+    private void transcode(immutable(AsciiString) src, out string dest) @trusted
+    {
+        import std.encoding : transcode;
+        std.encoding.transcode(src, dest);
+    }
+
 	private void onRead(int type, ubyte[] value) {
 		switch (type) {
 			case -1:
@@ -460,7 +472,7 @@ class TelnetSocket {
 				if (value[0] == 2) {
 					// We're accepting a character set!
 					auto name = cast(AsciiString)value[1..$];
-					if (name && name.isValid) {
+					if (name && isValid(name)) {
 						string nameStr;
 						transcode(name, nameStr);
 						auto p = nameStr in _encodings;

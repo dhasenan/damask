@@ -14,6 +14,7 @@ import std.experimental.logger;
 import std.file;
 import std.json;
 import std.string;
+@safe:
 
 void loadAll(URL couchdb, string database) {
 	auto client = new CouchClient(couchdb);
@@ -22,8 +23,9 @@ void loadAll(URL couchdb, string database) {
 		info("You asked to load a world from %s, but there's no world there. I'm generating " ~
 				"a tiny one from scratch and saving it there. " ~
 				"If you think you are receiving this message in error, make sure that you " ~
-				"configured your MUD with the right paths and the world files you expected are there. " ~
-				"Note that the paths are case sensitive -- /foo/bar is not the same as /Foo/Bar.", database);
+				"configured your MUD with the right paths and the world files you expected are " ~
+                "there. Note that the paths are case sensitive -- /foo/bar is not the same as " ~
+                "/Foo/Bar.", database);
 		db.createDatabase();
 		makeTestWorld;
 		saveWorld;
@@ -42,7 +44,7 @@ void saveWorld() {
 	throw new Exception("not implemented");
 }
 
-void inflate(JSONValue doc) {
+void inflate(JSONValue doc) @trusted {
 	auto comp = doc.fromJSON!Component;
 	if (comp) {
 		ComponentManager.instance.add(comp.entity, comp);
