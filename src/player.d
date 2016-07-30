@@ -1,6 +1,7 @@
 module dmud.player;
 
 import std.digest.sha;
+import std.experimental.logger;
 import std.format;
 import std.string;
 import std.stdio;
@@ -11,7 +12,6 @@ import dmud.commands;
 import dmud.component;
 import dmud.domain;
 import dmud.container;
-import dmud.log;
 import dmud.telnet_socket;
 import dmud.time;
 import dmud.util;
@@ -26,7 +26,7 @@ class PlayerInputBehavior : Behavior {
 
 abstract class InputProcessor {
 	private Fiber _runFiber;
-	
+
 	final void run(TelnetSocket telnet) {
 		spawn({
 				_runFiber = getRunning;
@@ -34,11 +34,11 @@ abstract class InputProcessor {
 				_runFiber = null;
 			});
 	}
-	
+
 	void interrupt() {
 		throw new Exception("this option is not yet implemented");
 	}
-	
+
 	abstract void doRun(TelnetSocket telnet);
 }
 
@@ -131,7 +131,7 @@ class PlayerBehavior : Behavior {
 class WelcomeProcessor : InputProcessor {
 	Player player;
 	InputProcessor next;
-	
+
 	override void doRun(TelnetSocket telnet) {
 		while (!telnet.closed) {
 			telnet.write("Enter your character's name, or \"new\" for a new character: ");
@@ -174,12 +174,19 @@ class WelcomeProcessor : InputProcessor {
 	void startPlayer(Player player, TelnetSocket telnet) {
 		this.player = player;
 		auto w = world.get!World;
+		if (w is null) {
+			telnet.writeln("Oh no! No world is available for you to inhabit.");
+			telnet.writeln("Please come back when we're a little more together.");
+			telnet.close;
+			sharedLog.error("player tried to log in but there was no world for them");
+			return;
+		}
 		if (w.banner) telnet.writeln(w.banner);
 		auto behavior = new PlayerBehavior(player.entity, telnet);
 		ComponentManager.instance.add(player.entity, player);
 		spawn(&behavior.run);
 	}
-	
+
 	void registerNewPlayer(TelnetSocket telnet) {
 		string name;
 		telnet.write("What name do you want? ");
@@ -206,13 +213,19 @@ class WelcomeProcessor : InputProcessor {
 			}
 		}
 		auto w = world.get!World;
+		if (w is null) {
+			telnet.writeln("Oh no! No world is available for you to inhabit.");
+			telnet.writeln("Please come back when we're a little more together.");
+			telnet.close;
+			error("player tried to log in but there was no world for them");
+			return;
+		}
 		auto p = Player.create(name, pass, telnet);
 		telnet.writeln(format("Welcome to %s, %s.", w.name, name));
 		startPlayer(p.get!Player, telnet);
 	}
-	
+
 	void gmcp(string raw) {
-		
 	}
 }
 

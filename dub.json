@@ -8,6 +8,7 @@
 		"subscribed": "~>1.1.1",
 		"couch": {
 			"path": "../couche.d"
-		}
+		},
+		"units-d": "~>0.1.0"
 	}
 }

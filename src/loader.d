@@ -18,15 +18,16 @@ import std.string;
 
 void loadAll(URL couchdb, string database) {
 	auto client = new CouchClient(couchdb);
-	auto db = client.database(database);
+    infof("trying to use database %s", database);
+    infof("databases: %s", client.databases);
 	if (!client.databases.any!(x => x == database)) {
-		info("You asked to load a world from %s, but there's no world there. I'm generating " ~
-				"a tiny one from scratch and saving it there. " ~
-				"If you think you are receiving this message in error, make sure that you " ~
-				"configured your MUD with the right paths and the world files you expected are " ~
-                "there. Note that the paths are case sensitive -- /foo/bar is not the same as " ~
-                "/Foo/Bar.", database);
-		db.createDatabase();
+        infof("You asked to load a world from %s, but there's no world there. I'm generating " ~
+              "a tiny one from scratch and saving it there. " ~
+              "If you think you are receiving this message in error, make sure that you " ~
+              "configured your MUD with the right paths and the world files you expected are " ~
+              "there. Note that the paths are case sensitive -- /foo/bar is not the same as " ~
+              "/Foo/Bar.", database);
+		client.database(database).createDatabase();
 		makeTestWorld;
 		saveWorld;
 		return;
@@ -34,7 +35,7 @@ void loadAll(URL couchdb, string database) {
 
 	// We save everything about the world. Everything.
 	// That means we can just load everything out of the database as is.
-
+	auto db = client.database(database);
 	foreach (doc; db.allDocs) {
 		inflate(doc);
 	}

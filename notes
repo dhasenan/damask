@@ -1,5 +1,20 @@
 There's just so much to do, I'm not sure why I'm writing a todo list.
 
+Productionalization
+===================
+[ ] Log format to include log level
+[ ] Log files for dev vs prod
+
+Procgen
+=======
+[ ] City builder
+  [ ] visualizer / mapper
+  [ ] make walls
+  [ ] make thoroughfares
+  [ ] make street grid
+  [ ] decorations (trees, walkways, etc in streets)
+
+
 Basic functionality
 ===================
 [ ] Movement: look when you move.

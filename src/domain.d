@@ -2,12 +2,14 @@ module dmud.domain;
 
 import std.algorithm;
 import std.datetime;
+import std.experimental.logger;
 import std.range;
 import std.string;
 import std.uni;
+import experimental.units;
+import experimental.units.si;
 
 import dmud.component;
-import dmud.log;
 import dmud.telnet_socket;
 
 @safe:
@@ -156,6 +158,22 @@ class Zone {
 	/// The mobs that randomly spawn in this zone.
 	// TODO: what about mob groups? Like a banker and a bodyguard?
 	Mob[] mobs;
+
+  /++
+		+ Where this zone belongs.
+		+ A zone might contain other zones -- for instance, a wilderness zone
+		+ contains a city.
+		+/
+  Entity parent;
+
+	/++
+		+ How large a room is, if not otherwise specified.
+		+/
+  Quantity!Metre defaultRoomScale;
+
+	this() {
+		defaultRoomScale = 10 * metre;
+	}
 }
 
 
@@ -195,10 +213,8 @@ class PlayerNewsStatus : Component {
 }
 
 
-Entity world;
-static this() {
-	world = ComponentManager.instance.next;
-}
+// The world is always entity 1.
+Entity world = cast(Entity)1;
 
 class World : Component {
 	Entity startingRoom;

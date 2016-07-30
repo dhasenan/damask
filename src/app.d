@@ -43,12 +43,19 @@ int main(string[] args)
 {
 	memoryErrorStart;
 	setupLogging;
+
+	import dmud.citygen;
+	makeCity;
+
+	/*
+
 	setupScheduler;
-	loadAll("localhost".parseURL, "dmud");
+	loadAll("localhost:5984".parseURL, "dmud");
 	ushort port = 5005;
 	auto server = new Server(port);
 	info("listening on port ", port);
 	startScheduler;
+	*/
 
 	return 0;
 }
