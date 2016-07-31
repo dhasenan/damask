@@ -11,7 +11,7 @@ import dmud.component;
 import dmud.domain;
 import dmud.util;
 
-Entity makeCity() {
+Entity makeCity(bool assignStartRoom = true) {
 	auto cm = ComponentManager.instance;
 	auto rnd = Mt19937(112);
 	// Choose the size of the city.
@@ -87,7 +87,8 @@ Entity makeCity() {
 			room.description = "A section of city wall between Tower %s and Tower %s".format(i + 1, targetIndex + 1);
 			rooms[point] = e;
 
-			// Make an exit
+			// Make an exit.
+			// TODO: make this more DRY
 			auto last = rooms[lastPlaced];
 			Exit exit;
 			Exit reverse;
@@ -148,6 +149,10 @@ Entity makeCity() {
 		}
 	}
 
+	if (assignStartRoom) {
+		auto w = world.get!World;
+		w.startingRoom = rooms.nonDefaults.front;
+	}
 
 	auto f = File("/home/dhasenan/foo.svg", "w");
 	f.writef(`<svg width="%s" height="%s" xmlns="http://www.w3.org/2000/svg">

@@ -1,6 +1,7 @@
 module dmud.app;
 
 import dmud.telnet_socket;
+import dmud.component;
 import dmud.domain;
 import dmud.loader;
 import dmud.player;
@@ -45,17 +46,17 @@ int main(string[] args)
 	setupLogging;
 
 	import dmud.citygen;
-	makeCity;
-
-	/*
+	auto w = world.add!World;
+	w.name = "The Mud";
+	w.banner = "Welcome!";
+	makeCity(true);
 
 	setupScheduler;
-	loadAll("localhost:5984".parseURL, "dmud");
+	//loadAll("localhost:5984".parseURL, "dmud");
 	ushort port = 5005;
 	auto server = new Server(port);
 	info("listening on port ", port);
 	startScheduler;
-	*/
 
 	return 0;
 }

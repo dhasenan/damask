@@ -61,7 +61,7 @@ abstract class Command {
 class Quit : Command {
 	override void doAct(Entity self, string target) {
 		auto mo = self.get!MudObj;
-		info("%s is quitting", mo.name);
+		infof("%s is quitting", mo.name);
 		auto writer = self.get!Writer;
 		if (writer && writer.telnet) {
 			writer.writeln("Be seeing you.");
@@ -110,7 +110,7 @@ class News : Command {
 		}
 		auto read = self.get!PlayerNewsStatus;
 		foreach (ni; news.news) {
-			info("have news item %s", ni.id);
+			infof("have news item %s", ni.id);
 		}
 		NewsItem ni;
 		if (!read.lastRead) {
@@ -118,7 +118,7 @@ class News : Command {
 		}
 		else {
 			auto lastRead = news.news.countUntil!((NewsItem x) => x.id >= read.lastRead);
-			info("news: total %s news items; player last read %s at %s", news.news.length, lastRead,
+			infof("news: total %s news items; player last read %s at %s", news.news.length, lastRead,
 					read.lastRead);
 			if (lastRead == news.news.length - 1) {
 				writer.writeln("No news, only olds! Ah ha ha, I kill me.");

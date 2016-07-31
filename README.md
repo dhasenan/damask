@@ -4,6 +4,11 @@ Damask MUD
 This is a MUD engine! It's got some reasonable goals and some far-flung goals.
 
 
+Current status
+--------------
+The MUD isn't currently useful for anything.
+
+
 Reasonable goals
 ----------------
 I want Damask to feature:

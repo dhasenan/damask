@@ -82,12 +82,12 @@ struct Exit {
 		if (name.toLower == str.toLower) {
 			return true;
 		}
-		sharedLog.info("[%s] != [%s]", name, str);
+		sharedLog.infof("[%s] != [%s]", name, str);
 		foreach (a; aliases) {
 			if (a.toLower == str.toLower) {
 				return true;
 			}
-			sharedLog.info("[%s] != [%s]", a, str);
+			sharedLog.infof("[%s] != [%s]", a, str);
 		}
 		return false;
 	}

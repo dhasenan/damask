@@ -69,7 +69,10 @@ class PlayerBehavior : Behavior {
 		while (!telnet.closed) {
 			auto line = telnet.readLine.stripRight;
 			auto parts = line.splitOnce;
-			sharedLog.info("player command: [%s] [%s]", parts.head, parts.tail);
+			if (parts.head.length == 0) {
+				continue;
+			}
+			sharedLog.infof("player command: [%s] [%s]", parts.head, parts.tail);
 			auto tail = parts.tail.strip.toLower;
 			auto mo = entity.get!MudObj;
 
