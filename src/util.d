@@ -1,9 +1,11 @@
 module dmud.util;
 
-import core.thread;
 public import core.thread : Fiber;
-import std.concurrency;
+
+import core.thread;
 import std.algorithm;
+import std.concurrency;
+import std.encoding;
 import std.exception;
 import std.format;
 
@@ -37,13 +39,30 @@ struct Point {
 		auto dx = x - other.x;
 		auto dy = y - other.y;
 		auto dz = z - other.z;
-		return 
-			1 >= dz &&
-			-1 <= dz &&
+		// We have eight directions on the plane, plus up and down.
+		if ((dz == -1 || dz == 1) && dx == 0 && dy == 0) {
+			return true;
+		}
+		return
+			dz == 0 &&
 			1 >= dx &&
 			-1 <= dx &&
 			1 >= dy &&
 			-1 <= dy;
+	}
+
+	Point opBinary(string op)(const ref Point other) if (op == "-") {
+		return Point(
+				this.x - other.x,
+				this.y - other.y,
+				this.z - other.z);
+	}
+
+	Point opBinary(string op)(const ref Point other) if (op == "+") {
+		return Point(
+				this.x + other.x,
+				this.y + other.y,
+				this.z + other.z);
 	}
 }
 
@@ -62,32 +81,34 @@ struct Cube(T) {
 		_dim = (_radius + 1) * 2 + 1;
 		// how to get to the center
 		_off = _radius + 2;
-		_data = new T[_dim * _dim];
+		_data = new T[_dim * _dim * _dim];
 	}
 
-	private long _index(long x, long y) {
+	private long _index(long x, long y, long z) {
 		enforce(x <= _radius
 			&& y <= _radius
 			&& x >= -_radius
-			&& y >= -_radius,
-			"(%s, %s) violates radius %s".format(x, y, _radius));
-		return (x + _off) * _dim + y + _off;
+			&& y >= -_radius
+			&& z <= _radius
+			&& z >= -_radius,
+			"(%s, %s, %s) violates radius %s".format(x, y, z, _radius));
+		return ((x + _off) * _dim + y + _off) * _dim + z + _off;
 	}
 
-	T opIndex(long x, long y) {
-		return _data[_index(x, y)];
+	T opIndex(long x, long y, long z) {
+		return _data[_index(x, y, z)];
 	}
 
-	T opIndexAssign(T item, long x, long y) {
-		return _data[_index(x, y)] = item;
+	T opIndexAssign(T item, long x, long y, long z) {
+		return _data[_index(x, y, z)] = item;
 	}
 
 	T opIndexAssign(T item, Point p) {
-		return _data[_index(p.x, p.y)] = item;
+		return _data[_index(p.x, p.y, p.z)] = item;
 	}
 
 	T opIndex(Point p) {
-		return _data[_index(p.x, p.y)];
+		return _data[_index(p.x, p.y, p.z)];
 	}
 
 	int opApply(int delegate(Point, T) @safe dg) {
@@ -121,3 +142,17 @@ unittest {
 	s[0, 0, 0] = -14;
 	assert(s[0, 0, 0] == -14);
 }
+
+
+EncodingScheme ascii;
+EncodingScheme iso8859_1;
+EncodingScheme utf8;
+EncodingScheme utf32;
+
+static this() @trusted {
+	ascii = EncodingScheme.create("ascii");
+	utf8 = EncodingScheme.create("utf-8");
+	iso8859_1 = EncodingScheme.create("ISO-8859-1");
+	utf32 = EncodingScheme.create("utf-32le");
+}
+

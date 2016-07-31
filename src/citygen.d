@@ -49,14 +49,34 @@ Entity makeCity(bool assignStartRoom = true) {
 
 	// Add towers to the map.
 	foreach (i, tower; towers) {
-		auto e = cm.next;
-		auto r = e.add!Room;
-		r.zone = zoneEntity;
-		auto room = e.add!MudObj;
-		room.name = "Tower %s".format(i + 1);
-		room.description = "A mighty tower named %s.".format(i + 1);
-		r.localPosition = tower;
-		rooms[tower] = e;
+		Room last;
+		for (long height = 0; height < tower.z; height++) {
+			auto e = cm.next;
+			auto r = e.add!Room;
+			r.zone = zoneEntity;
+			auto room = e.add!MudObj;
+			room.name = "The staircase of Tower %s (height %s)".format(i + 1, height);
+			room.description = "You are in a mighty tower named %s.".format(i + 1);
+			r.localPosition = Point(tower.x, tower.y, height);
+			rooms[tower] = e;
+			if (last !is null) {
+				last.dig(r, true);
+			}
+			last = r;
+		}
+		{
+			auto e = cm.next;
+			auto r = e.add!Room;
+			r.zone = zoneEntity;
+			auto room = e.add!MudObj;
+			room.name = "The top of Tower %s".format(i + 1);
+			room.description = "You are at the top of a mighty tower named %s.".format(i + 1);
+			r.localPosition = tower;
+			rooms[tower] = e;
+			if (last !is null) {
+				last.dig(r, true);
+			}
+		}
 	}
 
 	// Add walls.
@@ -96,7 +116,7 @@ Entity makeCity(bool assignStartRoom = true) {
 			r.zone = zoneEntity;
 			r.localPosition = point;
 			auto room = e.add!MudObj;
-			room.name = "City Wall";
+			room.name = "City Wall %s".format(cast(long)e);
 			room.description = "A section of city wall between Tower %s and Tower %s".format(i + 1, targetIndex + 1);
 			rooms[point] = e;
 

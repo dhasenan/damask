@@ -20,19 +20,6 @@ import std.uni;
 	mixin Signal!T;
 }
 
-EncodingScheme ascii;
-EncodingScheme iso8859_1;
-EncodingScheme utf8;
-EncodingScheme utf32;
-
-static this() @trusted {
-	ascii = EncodingScheme.create("ascii");
-	utf8 = EncodingScheme.create("utf-8");
-	iso8859_1 = EncodingScheme.create("ISO-8859-1");
-	utf32 = EncodingScheme.create("utf-32le");
-}
-
-
 // @trusted for encoding.canEncode
 void wrap()(string value, int width, const EncodingScheme encoding, void delegate(dchar) @safe output) @trusted
 {
@@ -148,15 +135,17 @@ ubyte[] toAscii(string str) {
 	return toBytes(ascii, str);
 }
 
-void debugWrite(ubyte[] v) {
-	std.stdio.write("[");
+void debugWrite(string tag, const ubyte[] v) {
+	import std.stdio : write;
+	write(tag);
+	write(": [");
 	for (int i = 0; i < v.length; i++) {
 		if (i) {
-			std.stdio.write(", ");
+			write(", ");
 		}
-		std.stdio.write(v[i]);
+		write(v[i]);
 	}
-	std.stdio.write("]\n");
+	write("]\n");
 }
 
 unittest {
@@ -247,7 +236,7 @@ class TelnetSocket {
 	}
 
 	string terminalType() { return _terminalType; }
-	
+
 	void writeln(string value) {
 		if (value.endsWith("\n")) {
 			write(value);
@@ -302,16 +291,16 @@ class TelnetSocket {
 		DONT = 254,
 		IAC = 255,
 	}
-	
+
 	private DList!string _dataQueue;
-	
+
 	const MAX_LINE_LENGTH = 1024;
-	
-	
+
+
 	// TODO: This busy-waits until the socket has data. Instead make a
 	// fiber scheduler that is IO-aware and can wait until a socket has
 	// data available for reading.
-	string readLine(bool trim = true) {
+	string readLine(bool trim = true) @trusted {
 		string s = "";
 		while (!closed) {
 			while (_dataQueue.empty) {
@@ -319,6 +308,7 @@ class TelnetSocket {
 			}
 			auto item = _dataQueue.front;
 			_dataQueue.removeFront();
+			debugWrite("datum", cast(ubyte[])item);
 			auto i = item.indexOf('\n');
 			if (i >= 0) {
 				s ~= item[0..i];
@@ -360,6 +350,7 @@ class TelnetSocket {
 			if (received < 0) {
 				continue;
 			}
+			debugWrite("raw", readBuffer[0..received]);
 			for (int i = 0; i < received; i++) {
 				a = b;
 				b = c;
@@ -412,7 +403,7 @@ class TelnetSocket {
 				s++; 
 			}
 			if (commandType == -1) {
-				onRead(commandType, parseBuffer[0..s+1]);
+				onRead(commandType, parseBuffer[0..s]);
 				s = 0;
 			}
 		}
@@ -494,7 +485,7 @@ class TelnetSocket {
 				if (should == DO) {
 					// Hard-coded list of supported types!
 					writeln("sending charset greeting");
-					debugWrite(_charsetGreeting);
+					debugWrite("greeting", _charsetGreeting);
 					_sock.send(_charsetGreeting);
 				}
 				break;

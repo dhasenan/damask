@@ -119,6 +119,29 @@ class Room : Component {
 		return id ~ ": " ~ items.map!(x => x.name).join(", ") ~ '\n';
 	}
 
+	private {
+		struct Em {
+			string full;
+			string fragment;
+		}
+		static Em[Point] dirs;
+		static this() {
+			dirs =
+			[
+				Point(1, 1, 0): Em("southwest", "sw"),
+				Point(-1, 1, 0): Em("southeast", "se"),
+				Point(1, -1, 0): Em("northwest", "nw"),
+				Point(-1, -1, 0): Em("northeast", "ne"),
+				Point(1, 0, 0): Em("west", "w"),
+				Point(-1, 0, 0): Em("east", "e"),
+				Point(0, 1, 0): Em("south", "s"),
+				Point(0, -1, 0): Em("north", "n"),
+				Point(0, 0, -1): Em("up", "u"),
+				Point(0, 0, 1): Em("down", "d"),
+			];
+		}
+	}
+
 	bool dig(Room other, bool includeReverse) {
 		import std.stdio;
 		foreach (exit; exits) {
@@ -135,54 +158,34 @@ class Room : Component {
 		}
 		auto p = localPosition;
 		auto q = other.localPosition;
-		if (!p.adjacent(q)) {
+		auto d = p - q;
+		auto em = d in dirs;
+		if (em is null) {
 			writefln("tried to dig from non-adjacent %s to %s", p, q);
 			return false;
 		}
 		Exit exit;
-		// TODO vertical
-		if (p.y < q.y) {
-			// other is south of us
-			if (p.x < q.x) {
-				// other is west of us
-				exit.name = "southwest";
-				exit.aliases = ["sw"];
-			} else if (p.x > q.x) {
-				exit.name = "southeast";
-				exit.aliases = ["se"];
-			} else {
-				exit.name = "south";
-				exit.aliases = ["s"];
-			}
-		} else if (p.y > q.y) {
-			if (p.x < q.x) {
-				exit.name = "northwest";
-				exit.aliases = ["nw"];
-			} else if (p.x > q.x) {
-				exit.name = "northeast";
-				exit.aliases = ["ne"];
-			} else {
-				exit.name = "north";
-				exit.aliases = ["n"];
-			}
-		} else {
-			if (p.x < q.x) {
-				exit.name = "west";
-				exit.aliases = ["w"];
-			} else if (p.x > q.x) {
-				exit.name = "east";
-				exit.aliases = ["e"];
-			} else {
-				writefln("no case to handle %s -> %s", p, q);
-				return false;
-			}
-		}
+		exit.name = em.full;
+		exit.aliases = [em.fragment];
 		exit.target = other.entity;
 		exits ~= exit;
 		if (includeReverse) {
 			return other.dig(this, false);
 		}
 		return true;
+	}
+
+	unittest {
+		auto r1 = new Room;
+		r1.localPosition = Point(2, 3, 0);
+		auto r2 = new Room;
+		r2.localPosition = Point(2, 3, 1);
+		r1.dig(r2, true);
+
+		assert(r1.exits.length == 1);
+		assert(r2.exits.length == 1);
+		assert(r1.exits[0].name == "up");
+		assert(r2.exits[0].name == "down");
 	}
 }
 
