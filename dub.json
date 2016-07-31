@@ -6,9 +6,7 @@
 	"dependencies": {
 		"jsonizer": "~>0.5.1",
 		"subscribed": "~>1.1.1",
-		"couch": {
-			"path": "../couche.d"
-		},
-		"units-d": "~>0.1.0"
+		"units-d": "~>0.1.0",
+    "urld": "~>1.0.0"
 	}
 }

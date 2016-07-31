@@ -4,7 +4,7 @@ import dmud.component;
 import dmud.domain;
 import dmud.player;
 
-import couch;
+//import couch;
 import url;
 import jsonizer;
 
@@ -17,6 +17,8 @@ import std.string;
 @safe:
 
 void loadAll(URL couchdb, string database) {
+	makeTestWorld();
+	/*
 	auto client = new CouchClient(couchdb);
     infof("trying to use database %s", database);
     infof("databases: %s", client.databases);
@@ -39,8 +41,10 @@ void loadAll(URL couchdb, string database) {
 	foreach (doc; db.allDocs) {
 		inflate(doc);
 	}
+	*/
 }
 
+/*
 void saveWorld() {
 	throw new Exception("not implemented");
 }
@@ -57,6 +61,7 @@ void inflate(JSONValue doc) @trusted {
 
 void save(World world, string p) {
 }
+*/
 
 void makeTestWorld() {
 	auto c = ComponentManager.instance;
