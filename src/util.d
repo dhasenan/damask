@@ -31,6 +31,15 @@ struct Point {
 		auto dy = y - other.y;
 		return (dx^^2 + dy^^2) ^^ 0.5;
 	}
+
+	bool adjacent(Point other) {
+		auto dx = x - other.x;
+		auto dy = y - other.y;
+		return 1 >= dx &&
+			-1 <= dx &&
+			1 >= dy &&
+			-1 <= dy;
+	}
 }
 
 /// A square array with *centered* coordinates

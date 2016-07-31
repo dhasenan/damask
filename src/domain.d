@@ -118,6 +118,72 @@ class Room : Component {
 		if (items.empty) return "";
 		return id ~ ": " ~ items.map!(x => x.name).join(", ") ~ '\n';
 	}
+
+	bool dig(Room other, bool includeReverse) {
+		import std.stdio;
+		foreach (exit; exits) {
+			if (exit.target == other.entity) {
+				if (includeReverse) {
+					return other.dig(this, false);
+				}
+				return true;
+			}
+		}
+		if (other.zone != this.zone) {
+			writefln("tried to mix zones %s and %s", zone, other.zone);
+			return false;
+		}
+		auto p = localPosition;
+		auto q = other.localPosition;
+		if (!p.adjacent(q)) {
+			writefln("tried to dig from non-adjacent %s to %s", p, q);
+			return false;
+		}
+		Exit exit;
+		// TODO vertical
+		if (p.y < q.y) {
+			// other is south of us
+			if (p.x < q.x) {
+				// other is west of us
+				exit.name = "southwest";
+				exit.aliases = ["sw"];
+			} else if (p.x > q.x) {
+				exit.name = "southeast";
+				exit.aliases = ["se"];
+			} else {
+				exit.name = "south";
+				exit.aliases = ["s"];
+			}
+		} else if (p.y > q.y) {
+			if (p.x < q.x) {
+				exit.name = "northwest";
+				exit.aliases = ["nw"];
+			} else if (p.x > q.x) {
+				exit.name = "northeast";
+				exit.aliases = ["ne"];
+			} else {
+				exit.name = "north";
+				exit.aliases = ["n"];
+			}
+		} else {
+			if (p.x < q.x) {
+				exit.name = "west";
+				exit.aliases = ["w"];
+			} else if (p.x > q.x) {
+				exit.name = "east";
+				exit.aliases = ["e"];
+			} else {
+				writefln("no case to handle %s -> %s", p, q);
+				return false;
+			}
+		}
+		exit.target = other.entity;
+		exits ~= exit;
+		if (includeReverse) {
+			return other.dig(this, false);
+		}
+		return true;
+	}
 }
 
 class Behavior {

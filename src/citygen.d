@@ -49,9 +49,11 @@ Entity makeCity(bool assignStartRoom = true) {
 	foreach (i, tower; towers) {
 		auto e = cm.next;
 		auto r = e.add!Room;
+		r.zone = zoneEntity;
 		auto room = e.add!MudObj;
 		room.name = "Tower %s".format(i + 1);
 		room.description = "A mighty tower named %s.".format(i + 1);
+		r.localPosition = tower;
 		rooms[tower] = e;
 	}
 
@@ -72,6 +74,13 @@ Entity makeCity(bool assignStartRoom = true) {
 			auto y = tower.y + (dy * d);
 			auto point = Point(lrint(x), lrint(y));
 			if (rooms[point] != None) {
+				if (point != lastPlaced) {
+					auto k = rooms[point].get!Room;
+					auto v = rooms[lastPlaced].get!Room;
+					if (!k.dig(v, true)) {
+						throw new Exception("failed to dig from %s to %s".format(k.localPosition, v.localPosition));
+					}
+				}
 				lastPlaced = point;
 				continue;
 			}
@@ -79,71 +88,23 @@ Entity makeCity(bool assignStartRoom = true) {
 			assert(lastPlaced.dist(point) < 1.5,
 					"'adjacent' wall segments %s and %s too far (between towers %s and %s) -- raw point (%s, %s)".format(lastPlaced, point, tower, target, x, y));
 
+			assert(lastPlaced.dist(point) >= 1.0, "tried to place two things on same point");
 			auto e = cm.next;
 			auto r = e.add!Room;
 			r.zone = zoneEntity;
+			r.localPosition = point;
 			auto room = e.add!MudObj;
 			room.name = "City Wall";
 			room.description = "A section of city wall between Tower %s and Tower %s".format(i + 1, targetIndex + 1);
 			rooms[point] = e;
 
 			// Make an exit.
-			// TODO: make this more DRY
 			auto last = rooms[lastPlaced];
-			Exit exit;
-			Exit reverse;
-			exit.target = last;
-			reverse.target = e;
-			reverse.target = e;
-			if (point.x < lastPlaced.x) {
-				if (point.y < lastPlaced.y) {
-					exit.name = "southwest";
-					exit.aliases = ["sw"];
-					reverse.name = "northeast";
-					reverse.aliases = ["ne"];
-				} else if (point.y > lastPlaced.y) {
-					exit.name = "northwest";
-					exit.aliases = ["nw"];
-					reverse.name = "southeast";
-					reverse.aliases = ["ns"];
-				} else {
-					exit.name = "west";
-					exit.aliases = ["w"];
-					reverse.name = "east";
-					reverse.aliases = ["e"];
-				}
-			} else if (point.x > lastPlaced.x) {
-				if (point.y < lastPlaced.y) {
-					exit.name = "southeast";
-					exit.aliases = ["se"];
-					reverse.name = "northwest";
-					reverse.aliases = ["nw"];
-				} else if (point.y > lastPlaced.y) {
-					exit.name = "northeast";
-					exit.aliases = ["ne"];
-					reverse.name = "southwest";
-					reverse.aliases = ["sw"];
-				} else {
-					exit.name = "east";
-					exit.aliases = ["e"];
-					reverse.name = "west";
-					reverse.aliases = ["w"];
-				}
-			} else {
-				if (point.y < lastPlaced.y) {
-					exit.name = "south";
-					exit.aliases = ["s"];
-					reverse.name = "north";
-					reverse.aliases = ["n"];
-				} else if (point.y > lastPlaced.y) {
-					exit.name = "north";
-					exit.aliases = ["n"];
-					reverse.name = "south";
-					reverse.aliases = ["s"];
+			if (last != None && last != e) {
+				if (!r.dig(last.get!(Room), true)) {
+					throw new Exception("failed to dig from %s to %s".format(point, lastPlaced));
 				}
 			}
-			r.exits ~= exit;
-			last.get!(Room).exits ~= reverse;
 
 			lastPlaced = point;
 		}
