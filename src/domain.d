@@ -11,6 +11,7 @@ import experimental.units.si;
 
 import dmud.component;
 import dmud.telnet_socket;
+import dmud.util;
 
 @safe:
 
@@ -95,7 +96,10 @@ struct Exit {
 class Room : Component {
 	Entity[] mobs;
 	Entity[] items;
+	Entity zone;
 	Exit[] exits;
+	/// The position of the room within its zone.
+	Point localPosition;
 
 	string lookAt(Entity mob) {
 		// TODO visibility (which items can I see? which mobs? are any exits hidden?)
@@ -151,25 +155,15 @@ class Mob : MudObj {
 /** A zone is a group of rooms with similar treatment.
  * For now, "similar treatment" pretty much means mob spawns.
  */
-class Zone {
-	/// Rooms belonging to this zone.
-	Room[] rooms;
-
+class Zone : Component {
 	/// The mobs that randomly spawn in this zone.
 	// TODO: what about mob groups? Like a banker and a bodyguard?
 	Mob[] mobs;
 
-  /++
-		+ Where this zone belongs.
-		+ A zone might contain other zones -- for instance, a wilderness zone
-		+ contains a city.
-		+/
-  Entity parent;
-
 	/++
 		+ How large a room is, if not otherwise specified.
 		+/
-  Quantity!Metre defaultRoomScale;
+	Quantity!Metre defaultRoomScale;
 
 	this() {
 		defaultRoomScale = 10 * metre;
