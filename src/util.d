@@ -23,27 +23,32 @@ import std.format;
 }
 
 struct Point {
-	long x, y;
+	long x, y, z;
 	string toString() { return "(%s, %s)".format(x, y); }
 
 	double dist(const ref Point other) {
 		auto dx = x - other.x;
 		auto dy = y - other.y;
-		return (dx^^2 + dy^^2) ^^ 0.5;
+		auto dz = z - other.z;
+		return (dx^^2 + dy^^2 + dz^^2) ^^ 0.5;
 	}
 
 	bool adjacent(Point other) {
 		auto dx = x - other.x;
 		auto dy = y - other.y;
-		return 1 >= dx &&
+		auto dz = z - other.z;
+		return 
+			1 >= dz &&
+			-1 <= dz &&
+			1 >= dx &&
 			-1 <= dx &&
 			1 >= dy &&
 			-1 <= dy;
 	}
 }
 
-/// A square array with *centered* coordinates
-struct Square(T) {
+/// A cubic array with *centered* coordinates
+struct Cube(T) {
 	private {
 		int _radius;
 		int _off;
@@ -102,17 +107,17 @@ struct Square(T) {
 }
 
 unittest {
-	auto s = Square!(int)(5);
-	s[1, 2] = 4;
-	assert(s[1, 2] == 4);
-	assert(s[-1, -2] == 0);  // default
-	s[-5, -5] = 3;
-	assert(s[-5, -5] == 3);
-	s[-3, -5] = 3;
-	assert(s[-3, -5] == 3);
-	s[Point(4, -2)] = 188;
-	assert(s[4, -2] == 188);
-	assert(s[Point(4, -2)] == 188);
-	s[0, 0] = -14;
-	assert(s[0, 0] == -14);
+	auto s = Cube!(int)(5);
+	s[1, 2, -2] = 4;
+	assert(s[1, 2, -2] == 4);
+	assert(s[-1, -2, 4] == 0);  // default
+	s[-5, -5, 3] = 3;
+	assert(s[-5, -5, 3] == 3);
+	s[-3, -5, 3] = 3;
+	assert(s[-3, -5, 3] == 3);
+	s[Point(4, -2, 1)] = 188;
+	assert(s[4, -2, 1] == 188);
+	assert(s[Point(4, -2, 1)] == 188);
+	s[0, 0, 0] = -14;
+	assert(s[0, 0, 0] == -14);
 }

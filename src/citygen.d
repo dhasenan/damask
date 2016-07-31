@@ -11,13 +11,15 @@ import dmud.component;
 import dmud.domain;
 import dmud.util;
 
+enum WALL_HEIGHT = 3;
+
 Entity makeCity(bool assignStartRoom = true) {
 	auto cm = ComponentManager.instance;
 	auto rnd = Mt19937(112);
 	// Choose the size of the city.
 	auto radius = uniform(60, 100, rnd);
 	auto rVariance = radius / 10;
-	auto rooms = Square!Entity(radius + rVariance);
+	auto rooms = Cube!Entity(radius + rVariance);
 	auto zoneEntity = cm.next;
 	auto zone = zoneEntity.add!Zone;
 
@@ -72,7 +74,7 @@ Entity makeCity(bool assignStartRoom = true) {
 		for (double d = 0.5; d < dist; d += 0.5) {
 			auto x = tower.x + (dx * d);
 			auto y = tower.y + (dy * d);
-			auto point = Point(lrint(x), lrint(y));
+			auto point = Point(lrint(x), lrint(y), WALL_HEIGHT);
 			if (rooms[point] != None) {
 				if (point != lastPlaced) {
 					auto k = rooms[point].get!Room;
@@ -174,6 +176,7 @@ double angleOf(Point p) {
 
 Point toCoords(double angle, double length) {
 	Point p;
+	p.z = WALL_HEIGHT;
 	p.x = abs(lrint(cos(angle) * length));
 	p.y = abs(lrint(sin(angle) * length));
 	if (angle > PI * 0.5 && angle <= 1.5 * PI) {
