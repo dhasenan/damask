@@ -66,6 +66,10 @@ class Quit : Command {
 		if (writer && writer.telnet) {
 			writer.writeln("Be seeing you.");
 			writer.telnet.close;
+		} else if (writer is null) {
+			infof("%s has null writer", self);
+		} else {
+			infof("%s has null telnet", self);
 		}
 	}
 }

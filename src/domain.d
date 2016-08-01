@@ -8,6 +8,7 @@ import std.string;
 import std.uni;
 import experimental.units;
 import experimental.units.si;
+import jsonizer;
 
 import dmud.component;
 import dmud.telnet_socket;
@@ -16,22 +17,26 @@ import dmud.util;
 @safe:
 
 class MudObj : Component {
-	/// User-visible name for the object. What they see when they look at it.
-	/// Example: "The Reverend", "bodging knife", "The Inn at the Market"
-	string name;
+	mixin JsonSupport;
 
-	/// What the player sees when looking at this thing.
-	string description;
+	@jsonize {
+		/// User-visible name for the object. What they see when they look at it.
+		/// Example: "The Reverend", "bodging knife", "The Inn at the Market"
+		string name;
 
-	/// Other names by which this object can be referred to.
-	string[] aliases;
+		/// What the player sees when looking at this thing.
+		string description;
 
-	/// What this thing is in.
-	/// If this is an item, the container or room it's in.
-	/// Player: room.
-	/// Room: zone.
-	/// Zone: world.
-	Entity containing;
+		/// Other names by which this object can be referred to.
+		string[] aliases;
+
+		/// What this thing is in.
+		/// If this is an item, the container or room it's in.
+		/// Player: room.
+		/// Room: zone.
+		/// Zone: world.
+		Entity containing;
+	}
 
 	override string toString() { return name; }
 
@@ -68,16 +73,14 @@ class MudObj : Component {
 	}
 }
 
-class Item : MudObj {
-	/// An item is always in something else. A room, a mob's inventory, or a
-	/// container. This is what it's in.
-	MudObj containing;
-}
-
 struct Exit {
-	Entity target;
-	string name;
-	string[] aliases;
+	mixin JsonSupport;
+	@jsonize {
+		Entity target;
+		string name;
+		string[] aliases;
+	}
+
 	bool identifiedBy(string str) {
 		if (name.toLower == str.toLower) {
 			return true;
@@ -94,12 +97,15 @@ struct Exit {
 }
 
 class Room : Component {
-	Entity[] mobs;
-	Entity[] items;
-	Entity zone;
-	Exit[] exits;
-	/// The position of the room within its zone.
-	Point localPosition;
+	mixin JsonSupport;
+	@jsonize {
+		Entity[] mobs;
+		Entity[] items;
+		Entity zone;
+		Exit[] exits;
+		/// The position of the room within its zone.
+		Point localPosition;
+	}
 
 	string lookAt(Entity mob) {
 		// TODO visibility (which items can I see? which mobs? are any exits hidden?)
@@ -196,8 +202,7 @@ class Behavior {
 // TODO: some sort of MobRecipe so I can have variants.
 // Some simple text replacement in the description and name, some attribute variation, etc.
 class Mob : MudObj {
-	Room room;
-	Item[] inventory;
+	mixin JsonSupport;
 	Behavior behavior;
 
 	void write(string value) {}
@@ -225,14 +230,24 @@ class Mob : MudObj {
  * For now, "similar treatment" pretty much means mob spawns.
  */
 class Zone : Component {
-	/// The mobs that randomly spawn in this zone.
-	// TODO: what about mob groups? Like a banker and a bodyguard?
-	Mob[] mobs;
+	mixin JsonSupport;
+	@jsonize {
+		/// The mobs that randomly spawn in this zone.
+		// TODO: what about mob groups? Like a banker and a bodyguard?
+		Mob[] mobs;
+
+		// Provided for json conversion.
+		@system {
+		double roomScale() { return defaultRoomScale.toValue; }
+		void roomScale(double value) { defaultRoomScale = value * metre; }
+
+		}
+	}
 
 	/++
 		+ How large a room is, if not otherwise specified.
 		+/
-	Quantity!Metre defaultRoomScale;
+		Quantity!Metre defaultRoomScale;
 
 	this() {
 		defaultRoomScale = 10 * metre;
@@ -241,7 +256,11 @@ class Zone : Component {
 
 
 class Inventory : Component {
-	Entity[] items;
+	mixin JsonSupport;
+	@jsonize {
+		Entity[] items;
+	}
+
 	int opApply(int delegate(Entity) @safe dg) {
 		int result = 0;
 		foreach (i; items) {
@@ -254,9 +273,12 @@ class Inventory : Component {
 
 
 class NewsItem {
-	string id;
-	string news;
-	SysTime date;
+	mixin JsonSupport;
+	@jsonize {
+		string id;
+		string news;
+		SysTime date;
+	}
 
 	this(SysTime date, string news) {
 		this.date = date;
@@ -267,20 +289,29 @@ class NewsItem {
 
 
 class AllNews : Component {
-	NewsItem[] news;
+	mixin JsonSupport;
+	@jsonize {
+		NewsItem[] news;
+	}
 }
 
 
 class PlayerNewsStatus : Component {
-	string lastRead;
+	mixin JsonSupport;
+	@jsonize {
+		string lastRead;
+	}
 }
 
 
 // The world is always entity 1.
-Entity world = cast(Entity)1;
+Entity world = Entity(1);
 
 class World : Component {
-	Entity startingRoom;
-	string name;
-	string banner;
+	mixin JsonSupport;
+	@jsonize {
+		Entity startingRoom;
+		string name;
+		string banner;
+	}
 }

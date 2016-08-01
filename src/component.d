@@ -1,14 +1,21 @@
 module dmud.component;
 
-import jsonizer.jsonize;
+import jsonizer;
 
 import std.conv;
+import std.json;
 import std.typecons;
+
+import dmud.util;
 
 @safe:
 
-alias Entity = Typedef!(ulong, 0, "Entity");
-enum None = cast(Entity)0;
+struct Entity {
+	mixin JsonSupport;
+	@jsonize ulong value;
+	this(ulong v) { value = v; }
+}
+enum None = Entity(0);
 
 T get(T)(Entity entity) {
 	return ComponentManager.instance.get!(T)(entity);
@@ -16,11 +23,13 @@ T get(T)(Entity entity) {
 
 T add(T)(Entity entity) {
 	auto t = new T;
+  t.entity = entity;
 	ComponentManager.instance.add!(T)(entity, t);
 	return t;
 }
 
 T add(T)(Entity entity, T value) {
+  value.entity = entity;
 	ComponentManager.instance.add!(T)(t);
 	return t;
 }
@@ -92,6 +101,17 @@ class ComponentManager {
 		return T.init;
 	}
 
+  void load(Entity entity, Component[] components) {
+    Component[ClassInfo] c;
+    foreach (component; components) {
+      import std.format;
+      assert(component.entity == entity, "expected entity %s for component %s but got %s".format(entity,
+          component.classinfo.name, component.entity));
+      c[component.classinfo] = component;
+    }
+    _components[entity] = c;
+  }
+
 	void removeComponent(T)(Entity entity) if (is(T : Component)) {
 		auto p = entity in _components;
 		if (p) {
@@ -103,16 +123,33 @@ class ComponentManager {
 		_components.remove(entity);
 	}
 
-	/*
-	const(Component[]) components(Entity entity) {
+	const(Component[]) components(Entity entity) @trusted {
 		auto p = entity in _components;
 		if (p) { return p.values; }
 		return null;
 	}
+
+	/*
 
 	@property
 	const(Entity[]) entities() {
 		return _components.keys;
 	}
 	*/
+}
+
+
+unittest {
+  class Foo : Component {
+    string name;
+  }
+  auto cm = new ComponentManager;
+  auto entity = cm.next;
+  auto f = new Foo;
+  f.name = "hi there";
+  cm.add(entity, f);
+  assert(f.entity == entity);
+  assert(cast(ulong) f.entity > 0);
+  auto f2 = cm.get!Foo(entity);
+  assert(f2.name == "hi there");
 }

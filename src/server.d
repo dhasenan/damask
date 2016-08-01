@@ -3,6 +3,7 @@ module dmud.server;
 import std.socket;
 import std.stdio;
 
+import dmud.db;
 import dmud.player;
 import dmud.telnet_socket;
 import dmud.util;
@@ -15,11 +16,13 @@ class Server {
 	private {
 		Socket ip4;
 		Socket ip6;
+    Db db;
 	}
 	
 	bool stopping = false;
 	
-	this(ushort port) {
+	this(ushort port, Db db) {
+    this.db = db;
 		ip4 = new TcpSocket(AddressFamily.INET);
 		ip4.setOption(SocketOptionLevel.SOCKET, SocketOption.REUSEADDR, 1);
 		ip4.setOption(SocketOptionLevel.SOCKET, SockOption_ReusePort, 1);
@@ -59,7 +62,7 @@ class Server {
 	
 	void startNewConnection(Socket sock) {
 		auto telnet = new TelnetSocket(sock);
-		auto input = new WelcomeProcessor();
+		auto input = new WelcomeProcessor(db);
 		input.run(telnet);
 		spawn(&telnet.run);
 	}

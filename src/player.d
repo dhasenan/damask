@@ -10,6 +10,7 @@ import std.uni;
 
 import dmud.commands;
 import dmud.component;
+import dmud.db;
 import dmud.domain;
 import dmud.container;
 import dmud.telnet_socket;
@@ -132,8 +133,11 @@ class PlayerBehavior : Behavior {
 }
 
 class WelcomeProcessor : InputProcessor {
+	Db db;
 	Player player;
 	InputProcessor next;
+
+	this(Db db) { this.db = db; }
 
 	override void doRun(TelnetSocket telnet) {
 		while (!telnet.closed) {
@@ -151,25 +155,34 @@ class WelcomeProcessor : InputProcessor {
 				registerNewPlayer(telnet);
 				return;
 			}
-			auto p = Player.loadForInfo(first);
-			if (!p) {
+			auto p = db.getUser(first);
+			if (p == PlayerInfo.init) {
 				telnet.writeln(format("Sorry, no player by that name exists."));
 				continue;
 			}
 			telnet.write(format("Enter password for %s: ", first));
 			while (!telnet.closed) {
 				auto pass = telnet.readLine;
-				if (p.passwordEqual(pass)) {
+				auto h = pass.sha256Of().toHexString.idup;
+				writefln("checking user with password %s hash %s vs %s", pass, h, p.pbkdf2);
+				if (h == p.pbkdf2) {
 					break;
 				}
 				telnet.writeln("Sorry, that's not the right password. Try again.");
 			}
 			// You've logged in! \o/
 			// We *should* have reloaded your character from the database.
+			ComponentManager.instance.load(p.entity, db.getComponents(p.entity));
+			infof("loaded components for %s", p.entity);
 			auto mo = p.entity.get!MudObj;
 			auto w = world.get!World;
+			infof("fetched world");
+			assert(w !is null, "world is null?");
+			assert(mo !is null, "player mudobj is null");
 			telnet.writeln(format("Welcome back to %s, %s.", w.name, mo.name));
-			startPlayer(p, telnet);
+			infof("greeted player");
+			startPlayer(p.entity.get!Player, telnet);
+			infof("started player");
 			return;
 		}
 	}
@@ -224,8 +237,12 @@ class WelcomeProcessor : InputProcessor {
 			return;
 		}
 		auto p = Player.create(name, pass, telnet);
+		db.saveUser(name, p.passwordHash, p.entity);
+		foreach (component; ComponentManager.instance.components(p.entity)) {
+			db.save(component);
+		}
 		telnet.writeln(format("Welcome to %s, %s.", w.name, name));
-		startPlayer(p.get!Player, telnet);
+		startPlayer(p, telnet);
 	}
 
 	void gmcp(string raw) {
@@ -248,7 +265,7 @@ class Player : Component {
 		return null;
 	}
 
-	static Entity create(string name, string pass, TelnetSocket socket) {
+	static Player create(string name, string pass, TelnetSocket socket) {
 		// I need a mudobj, a mob (maybe), and news reading thing.
 		auto entity = ComponentManager.instance.next;
 		entity.add!PlayerNewsStatus;
@@ -266,21 +283,24 @@ class Player : Component {
 		if (w) {
 			mo.containing = w.startingRoom;
 		}
-		return entity;
+		return player;
 	}
 
 	string name;
-	ubyte[] passwordHash;
+	string passwordHash;
 	bool admin;
 
 	void password(string value) {
-		auto hash = sha256Of(value);
-		passwordHash.length = hash.length;
-		passwordHash[0..$] = hash[0..$];
+		// toHexString uses a mutable or stack-allocated buffer.
+		// DMD 2.071.1 lets you pretend that, eg, char[64] is string, resulting in data corruption.
+		// (should be fixed in 2.071.2)
+		// Defensive copy.
+		passwordHash = sha256Of(value).toHexString.idup;
+		import std.stdio;
 	}
 
 	bool passwordEqual(string value) {
-		auto hash = sha256Of(value);
-		return hash[0..$] == passwordHash;
+		auto hash = sha256Of(value).toHexString.idup;
+		return hash == passwordHash;
 	}
 }
