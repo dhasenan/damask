@@ -9,6 +9,14 @@ Current status
 The MUD isn't currently useful for anything.
 
 
+Dependencies
+------------
+You must install the sqlite development packages or otherise acquire a copy of the sqlite3 static
+library. On Ubuntu:
+
+    sudo apt-get install libsqlite3-dev
+
+
 Reasonable goals
 ----------------
 I want Damask to feature:
@@ -20,9 +28,12 @@ I want Damask to feature:
 * support for large player bases (1,000 simultaneous players)
 * optional full persistence
 
-"Full persistence" won't be desirable for many people. It means that, if I walk up to the Broken Drum and kill Stren Withel, Stren Withel is *dead*. If I drop a sword on the ground, that sword isn't going to disappear automatically.
+"Full persistence" won't be desirable for many people. It means that, if I walk up to the Broken
+Drum and kill Stren Withel, Stren Withel is *dead*, and stays dead even when I reboot the server. If
+I drop a sword on the ground, that sword isn't going to disappear on the next reboot.
 
-Player housing is, largely, a controlled subset of full persistence, where items are persistent in a limited area.
+Player housing is, largely, a controlled subset of full persistence, where items are persistent in a
+limited area.
 
 
 Far-flung goals

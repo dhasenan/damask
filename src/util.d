@@ -9,7 +9,13 @@ import std.encoding;
 import std.exception;
 import std.format;
 
+import jsonizer;
+
 @safe:
+
+mixin template JsonSupport() {
+	@trusted { mixin JsonizeMe; }
+}
 
 @trusted void spawn(void delegate() @safe dg) {
 	assert(!!scheduler);
@@ -25,7 +31,11 @@ import std.format;
 }
 
 struct Point {
-	long x, y, z;
+	mixin JsonSupport;
+
+	@jsonize {
+		long x, y, z;
+	}
 	string toString() { return "(%s, %s)".format(x, y); }
 
 	double dist(const ref Point other) {

@@ -116,7 +116,7 @@ Entity makeCity(bool assignStartRoom = true) {
 			r.zone = zoneEntity;
 			r.localPosition = point;
 			auto room = e.add!MudObj;
-			room.name = "City Wall %s".format(cast(long)e);
+			room.name = "City Wall %s".format(e.value);
 			room.description = "A section of city wall between Tower %s and Tower %s".format(i + 1, targetIndex + 1);
 			rooms[point] = e;
 

@@ -2,6 +2,7 @@ module dmud.app;
 
 import dmud.telnet_socket;
 import dmud.component;
+import dmud.db;
 import dmud.domain;
 import dmud.loader;
 import dmud.player;
@@ -51,10 +52,13 @@ int main(string[] args)
 	w.banner = "Welcome!";
 	makeCity(true);
 
+  auto db = new Db("mud.sqlite");
+  db.init;
+
 	setupScheduler;
 	//loadAll("localhost:5984".parseURL, "dmud");
 	ushort port = 5005;
-	auto server = new Server(port);
+	auto server = new Server(port, db);
 	info("listening on port ", port);
 	startScheduler;
 
