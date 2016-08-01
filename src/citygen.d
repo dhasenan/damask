@@ -84,51 +84,80 @@ Entity makeCity(bool assignStartRoom = true) {
 		auto targetIndex = (i + 1) % towers.length;
 		auto target = towers[targetIndex];
 		auto dist = tower.dist(target);
-		auto dx = ((target.x - tower.x) / dist);
-		auto dy = ((target.y - tower.y) / dist);
-		// TODO(dhasenan): make this prefer ordinal exits rather than hard corners.
-		// (For walls at certain angles, it tends to produce, say, a line going east,
-		// then one south exit, then continues east...would be more natural with a
-		// southeast exit instead.)
-		Point lastPlaced = tower;
-		for (double d = 0.5; d < dist; d += 0.5) {
-			auto x = tower.x + (dx * d);
-			auto y = tower.y + (dy * d);
-			auto point = Point(lrint(x), lrint(y), WALL_HEIGHT);
-			if (rooms[point] != None) {
-				if (point != lastPlaced) {
-					auto k = rooms[point].get!Room;
-					auto v = rooms[lastPlaced].get!Room;
-					if (!k.dig(v, true)) {
-						throw new Exception("failed to dig from %s to %s".format(k.localPosition, v.localPosition));
-					}
-				}
-				lastPlaced = point;
-				continue;
+		auto dx = abs(target.x - tower.x);
+		auto dy = abs(target.y - tower.y);
+
+		auto ordinals = min(dx, dy);
+		auto cardinals = max(dx, dy) - ordinals;
+
+		// Determine the major and minor directions.
+		// Careful about division by zero.
+		Point majorDirection, minorDirection;
+		majorDirection.x = (target.x - tower.x) / (dx == 0 ? 1 : dx);
+		majorDirection.y = (target.y - tower.y) / (dy == 0 ? 1 : dy);
+		if (dx > dy) {
+			minorDirection.x = majorDirection.x;
+		} else {
+			minorDirection.y = majorDirection.y;
+		}
+		if (ordinals < cardinals) {
+			auto tmp = majorDirection;
+			majorDirection = minorDirection;
+			minorDirection = tmp;
+		}
+		writefln("drawing from %s to %s majorDirection=%s minorDirection=%s", tower, target,
+				majorDirection, minorDirection);
+		writefln("will take %s ordinal and %s cardinal bits", ordinals, cardinals);
+
+		// We will travel the total distance between tower and target by rotating between
+		// rooms with offset majorDirection and minorDirection.
+		// We can't maintain a precise rotation -- for instance, if we need to travel 25
+		// rooms on the X axis and 19 rooms on the Y axis, we have 6 cardinal and 19 ordinal
+		// rooms to travel. We can't make that precisely even.
+		// Instead, we will place rooms in the major direction, and each room in the major
+		// direction earns credits toward a room in the minor direction. When we have one
+		// full credit in the minor direction, we place that instead.
+
+		auto left = min(tower.x, target.x);
+		auto right = max(tower.x, target.x);
+		auto down = min(tower.y, target.y);
+		auto up = max(tower.y, target.y);
+
+		double creditsPerRoom = (1.0 * min(ordinals, cardinals)) / max(ordinals, cardinals);
+		writefln("will earn %s minor direction credits per room", creditsPerRoom);
+		double credits = 0;
+		Point p = tower;
+		while (p != target) {
+			auto last = p;
+			// Floating point inaccuracies.
+			// This should be good enough, as long as we don't generate really huge cities.
+			if (credits >= 0.9999) {
+				credits -= 1;
+				p += minorDirection;
+			} else {
+				p += majorDirection;
+				credits += creditsPerRoom;
 			}
-
-			assert(lastPlaced.dist(point) < 1.5,
-					"'adjacent' wall segments %s and %s too far (between towers %s and %s) -- raw point (%s, %s)".format(lastPlaced, point, tower, target, x, y));
-
-			assert(lastPlaced.dist(point) >= 1.0, "tried to place two things on same point");
-			auto e = cm.next;
-			auto r = e.add!Room;
-			r.zone = zoneEntity;
-			r.localPosition = point;
-			auto room = e.add!MudObj;
-			room.name = "City Wall %s".format(cast(long)e);
-			room.description = "A section of city wall between Tower %s and Tower %s".format(i + 1, targetIndex + 1);
-			rooms[point] = e;
-
-			// Make an exit.
-			auto last = rooms[lastPlaced];
-			if (last != None && last != e) {
-				if (!r.dig(last.get!(Room), true)) {
-					throw new Exception("failed to dig from %s to %s".format(point, lastPlaced));
-				}
+			assert(!(p.x < left || p.x > right || p.y < down || p.y > up),
+					"traveled out of bounds! from point: %s to: %s reached: %s\nbounds: %s %s %s %s".format(tower, target, p, left, right, up, down));
+			Room room;
+			if (rooms[p] == None) {
+				auto e = cm.next;
+				room = e.add!Room;
+				room.zone = zoneEntity;
+				room.localPosition = p;
+				auto obj = e.add!MudObj;
+				obj.name = "City Wall %s".format(cast(long)e);
+				obj.description = "A section of city wall between Tower %s and Tower %s".format(i + 1, targetIndex + 1);
+				rooms[p] = e;
+				writefln("placing room %s at %s", cast(ulong) e, p);
+			} else {
+				room = rooms[p].get!Room;
 			}
-
-			lastPlaced = point;
+			auto v = rooms[last].get!Room;
+			if (!room.dig(v, true)) {
+				throw new Exception("failed to dig from %s to %s".format(room.localPosition, v.localPosition));
+			}
 		}
 	}
 
@@ -150,10 +179,10 @@ Entity makeCity(bool assignStartRoom = true) {
 		f.writef("%s %s", tower.x + off, tower.y + off);
 	}
 	f.writeln(` Z" fill="#eeeeaa" stroke="black"/>`);
-	foreach (p, e; rooms) {
-		if (e == None) {
-			continue;
-		}
+	foreach (e; rooms.nonDefaults) {
+		auto room = e.get!Room;
+		if (room is null) continue;
+		auto p = room.localPosition;
 		assert(p.x + off > 0, p.toString);
 		assert(p.y + off > 0, p.toString);
 		f.writefln(`	<circle cx="%s" cy="%s" r="0.5" fill="red"/>`, p.x + off, p.y + off);

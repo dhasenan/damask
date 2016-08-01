@@ -26,7 +26,7 @@ import std.format;
 
 struct Point {
 	long x, y, z;
-	string toString() { return "(%s, %s)".format(x, y); }
+	string toString() { return "(%s, %s, %s)".format(x, y, z); }
 
 	double dist(const ref Point other) {
 		auto dx = x - other.x;
@@ -63,6 +63,13 @@ struct Point {
 				this.x + other.x,
 				this.y + other.y,
 				this.z + other.z);
+	}
+
+	Point opOpAssign(string op)(const ref Point other) if (op == "+") {
+		x += other.x;
+		y += other.y;
+		z += other.z;
+		return this;
 	}
 }
 
