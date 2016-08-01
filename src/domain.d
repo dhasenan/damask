@@ -96,6 +96,29 @@ struct Exit {
 	}
 }
 
+// Room + exit utilities
+private {
+	struct Em {
+		string full;
+		string fragment;
+	}
+	static Em[Point] dirs;
+	static this() {
+		dirs =
+		[
+			Point(1, 1, 0): Em("southwest", "sw"),
+			Point(-1, 1, 0): Em("southeast", "se"),
+			Point(1, -1, 0): Em("northwest", "nw"),
+			Point(-1, -1, 0): Em("northeast", "ne"),
+			Point(1, 0, 0): Em("west", "w"),
+			Point(-1, 0, 0): Em("east", "e"),
+			Point(0, 1, 0): Em("south", "s"),
+			Point(0, -1, 0): Em("north", "n"),
+			Point(0, 0, -1): Em("up", "u"),
+			Point(0, 0, 1): Em("down", "d"),
+		];
+	}
+}
 class Room : Component {
 	mixin JsonSupport;
 	@jsonize {
@@ -125,28 +148,6 @@ class Room : Component {
 		return id ~ ": " ~ items.map!(x => x.name).join(", ") ~ '\n';
 	}
 
-	private {
-		struct Em {
-			string full;
-			string fragment;
-		}
-		static Em[Point] dirs;
-		static this() {
-			dirs =
-			[
-				Point(1, 1, 0): Em("southwest", "sw"),
-				Point(-1, 1, 0): Em("southeast", "se"),
-				Point(1, -1, 0): Em("northwest", "nw"),
-				Point(-1, -1, 0): Em("northeast", "ne"),
-				Point(1, 0, 0): Em("west", "w"),
-				Point(-1, 0, 0): Em("east", "e"),
-				Point(0, 1, 0): Em("south", "s"),
-				Point(0, -1, 0): Em("north", "n"),
-				Point(0, 0, -1): Em("up", "u"),
-				Point(0, 0, 1): Em("down", "d"),
-			];
-		}
-	}
 
 	bool dig(Room other, bool includeReverse) {
 		import std.stdio;
@@ -237,10 +238,9 @@ class Zone : Component {
 		Mob[] mobs;
 
 		// Provided for json conversion.
-		@system {
-		double roomScale() { return defaultRoomScale.toValue; }
-		void roomScale(double value) { defaultRoomScale = value * metre; }
-
+		@property {
+			double roomScale() { return defaultRoomScale.toValue; }
+			void roomScale(double value) { defaultRoomScale = value * metre; }
 		}
 	}
 
@@ -277,8 +277,10 @@ class NewsItem {
 	@jsonize {
 		string id;
 		string news;
-		SysTime date;
+		@property string datestr() { return date.toISOString; }
+		@property void datestr(string value) { date = SysTime.fromISOString(value); }
 	}
+	SysTime date;
 
 	this(SysTime date, string news) {
 		this.date = date;
