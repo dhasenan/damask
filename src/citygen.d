@@ -161,9 +161,13 @@ Entity makeCity(bool assignStartRoom = true) {
 		}
 	}
 
+	// Now we want to create roads.
+	// We start with the center point (it's guaranteed to be within the walls.)
+	// Then we perturb it a bit, randomly, staying within the walls.
+
 	if (assignStartRoom) {
 		auto w = world.get!World;
-		w.startingRoom = rooms.nonDefaults.front;
+		w.startingRoom = rooms.nonDefaults.filter!(x => x != Invalid).front;
 	}
 
 	auto f = File("/home/dhasenan/foo.svg", "w");
