@@ -147,10 +147,10 @@ Entity makeCity(bool assignStartRoom = true) {
 				room.zone = zoneEntity;
 				room.localPosition = p;
 				auto obj = e.add!MudObj;
-				obj.name = "City Wall %s".format(cast(long)e);
+				obj.name = "City Wall %s".format(e.value);
 				obj.description = "A section of city wall between Tower %s and Tower %s".format(i + 1, targetIndex + 1);
 				rooms[p] = e;
-				writefln("placing room %s at %s", cast(ulong) e, p);
+				writefln("placing room %s at %s", e.value, p);
 			} else {
 				room = rooms[p].get!Room;
 			}

@@ -16,6 +16,7 @@ struct Entity {
 	this(ulong v) { value = v; }
 }
 enum None = Entity(0);
+enum Invalid = Entity(ulong.max);
 
 T get(T)(Entity entity) {
 	return ComponentManager.instance.get!(T)(entity);
