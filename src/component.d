@@ -39,7 +39,13 @@ class Component {
 		mixin JsonizeMe;
 	}
 
-	Entity entity;
+	@jsonize("class") @property {
+		// This is a hack to support class hierarchies.
+		string className() { return this.classinfo.name; }
+		void className(string ignored) {}
+	}
+
+	@jsonize Entity entity;
 	bool canSave = true;
 }
 

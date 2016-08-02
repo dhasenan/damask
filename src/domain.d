@@ -133,12 +133,13 @@ class Room : Component {
 	string lookAt(Entity mob) {
 		// TODO visibility (which items can I see? which mobs? are any exits hidden?)
 		auto s = entity.get!MudObj;
-		with (s)
+		with (s) {
 			return name ~ '\n' ~
 				description ~ '\n' ~
 				line("Exits", exits) ~
 				line("Mobs", mobs.filter!(x => x !is mob).map!(x => x.get!MudObj)) ~
 				line("Items", items.map!(x => x.get!MudObj));
+		}
 	}
 
 	// TODO: color
