@@ -172,7 +172,9 @@ class WelcomeProcessor : InputProcessor {
 			}
 			// You've logged in! \o/
 			// We *should* have reloaded your character from the database.
+			auto components = db.getComponents(p.entity);
 			ComponentManager.instance.load(p.entity, db.getComponents(p.entity));
+			p.entity.add!(Writer).telnet = telnet;
 			infof("loaded components for %s", p.entity);
 			auto mo = p.entity.get!MudObj;
 			auto w = world.get!World;

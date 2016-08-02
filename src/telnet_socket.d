@@ -86,7 +86,7 @@ void wrap()(string value, int width, const EncodingScheme encoding, void delegat
 			}
 		}
 	}
-	
+
 	if (lineStart < value.length - 1) {
 		// We have a trailing portion.
 		foreach (dchar v; value[lineStart..$]) {
@@ -151,9 +151,9 @@ void debugWrite(string tag, const ubyte[] v) {
 unittest {
 	string s;
 	auto target = "On the other hand, we denounce with righteous indignation and dislike men who are so beguiled and demoralized";
-	wrap(target, 25, ascii, (dchar d) @safe { s ~= d; }); 
+	wrap(target, 25, ascii, (dchar d) @safe { s ~= d; });
 	assert(s == "On the other hand, we\r\ndenounce with righteous\r\nindignation and dislike\r\nmen who are so beguiled\r\nand demoralized");
-	
+
 	auto endsWithNewline = "On the first day\n";
 	s = "";
 	wrap(endsWithNewline, 25, ascii, (dchar d) @safe { s ~= d; });
@@ -162,6 +162,7 @@ unittest {
 
 
 class Writer : Component {
+	this() { canSave = false; }
 	TelnetSocket telnet;
 
 	void write(string value) {
@@ -213,7 +214,7 @@ class TelnetSocket {
 			}
 			_charsetGreetingCache = new ubyte[6 + len];
 			_charsetGreetingCache[0..4] = [IAC, SB, cast(ubyte)Charset, cast(ubyte)1];
-			ubyte sep = 59;  // ASCII semicolon ';'
+			ubyte sep = 59;	// ASCII semicolon ';'
 			auto s = 4;
 			foreach (part; parts) {
 				_charsetGreetingCache[s] = sep;
@@ -328,7 +329,7 @@ class TelnetSocket {
 		}
 		return "";
 	}
-	
+
 	// TODO: This busy-waits. Make better socket-aware scheduler.
 	void run() {
 		auto readBuffer = new ubyte[_writeBuffer.length];
@@ -400,7 +401,7 @@ class TelnetSocket {
 				}
 				// We haven't found any commands. This must be a data item.
 				parseBuffer[s] = cast(ubyte)c;
-				s++; 
+				s++;
 			}
 			if (commandType == -1) {
 				onRead(commandType, parseBuffer[0..s]);
@@ -430,17 +431,17 @@ class TelnetSocket {
 		GMCP = 201
 	}
 
-    private bool isValid(AsciiString s) @trusted
-    {
-        import std.encoding : isValid;
-        return std.encoding.isValid(s);
-    }
+		private bool isValid(AsciiString s) @trusted
+		{
+				import std.encoding : isValid;
+				return std.encoding.isValid(s);
+		}
 
-    private void transcode(immutable(AsciiString) src, out string dest) @trusted
-    {
-        import std.encoding : transcode;
-        std.encoding.transcode(src, dest);
-    }
+		private void transcode(immutable(AsciiString) src, out string dest) @trusted
+		{
+				import std.encoding : transcode;
+				std.encoding.transcode(src, dest);
+		}
 
 	private void onRead(int type, ubyte[] value) {
 		switch (type) {
