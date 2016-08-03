@@ -50,7 +50,7 @@ int main(string[] args)
 	auto w = world.add!World;
 	w.name = "The Mud";
 	w.banner = "Welcome!";
-	makeCity(true);
+	new CityGen().makeCity(true);
 
   auto db = new Db("mud.sqlite");
   db.init;

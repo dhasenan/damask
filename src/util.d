@@ -61,18 +61,25 @@ struct Point {
 			-1 <= dy;
 	}
 
-	Point opBinary(string op)(const ref Point other) if (op == "-") {
+	Point opBinary(string op)(Point other) if (op == "-") {
 		return Point(
 				this.x - other.x,
 				this.y - other.y,
 				this.z - other.z);
 	}
 
-	Point opBinary(string op)(const ref Point other) if (op == "+") {
+	Point opBinary(string op)(Point other) if (op == "+") {
 		return Point(
 				this.x + other.x,
 				this.y + other.y,
 				this.z + other.z);
+	}
+
+	Point opBinary(string op)(double s) if (op == "*") {
+		return Point(
+				cast(long)(this.x + s),
+				cast(long)(this.y + s),
+				cast(long)(this.z + s));
 	}
 
 	Point opOpAssign(string op)(const ref Point other) if (op == "+") {
