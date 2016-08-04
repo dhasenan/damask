@@ -89,7 +89,16 @@ class PlayerBehavior : Behavior {
 							telnet.writeln("You try to go that way but something solid blocks your way.");
 							continue mainLoop;
 						}
+						auto dest = exit.target.get!Room;
+						if (dest is null) {
+							errorf("exit %s from %s to %s: %s has no room attached", exit.name, mo.containing,
+									exit.target);
+							telnet.writeln("A mysterious force blocks your path.");
+							continue mainLoop;
+						}
+						room.removeMob(entity);
 						mo.containing = exit.target;
+						dest.mobs ~= entity;
 						telnet.writeln(next.lookAt(entity));
 						telnet.writeln("");
 						continue mainLoop;
@@ -199,6 +208,20 @@ class WelcomeProcessor : InputProcessor {
 			sharedLog.error("player tried to log in but there was no world for them");
 			return;
 		}
+		auto mo = player.entity.get!MudObj;
+		if (mo !is null) {
+			auto room = mo.containing.get!Room;
+			if (room is null) {
+				infof("player had no valid starting room; fixing");
+				mo.containing = w.startingRoom;
+				room = mo.containing.get!Room;
+			}
+			if (room !is null) {
+				room.mobs ~= mo.entity;
+			} else {
+				errorf("started player, but could not place them in a room");
+			}
+		}
 		if (w.banner) telnet.writeln(w.banner);
 		auto behavior = new PlayerBehavior(player.entity, telnet);
 		ComponentManager.instance.add(player.entity, player);
@@ -284,6 +307,10 @@ class Player : Component {
 		auto w = world.get!World;
 		if (w) {
 			mo.containing = w.startingRoom;
+			auto room = w.startingRoom.get!Room;
+			if (room) {
+				room.mobs ~= entity;
+			}
 		}
 		return player;
 	}

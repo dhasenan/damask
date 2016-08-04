@@ -1,6 +1,7 @@
 module dmud.domain;
 
 import std.algorithm;
+import std.array;
 import std.datetime;
 import std.experimental.logger;
 import std.range;
@@ -139,6 +140,14 @@ class Room : Component {
 				line("Exits", exits) ~
 				line("Mobs", mobs.filter!(x => x !is mob).map!(x => x.get!MudObj)) ~
 				line("Items", items.map!(x => x.get!MudObj));
+		}
+	}
+
+	void removeMob(Entity mob) {
+		auto i = mobs.countUntil(entity);
+		if (i > -1) {
+			mobs[i] = mobs[$-1];
+			mobs.length -= 1;
 		}
 	}
 

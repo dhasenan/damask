@@ -71,6 +71,10 @@ class Quit : Command {
 		} else {
 			infof("%s has null telnet", self);
 		}
+		auto room = mo.containing.get!Room;
+		if (room !is null) {
+			room.removeMob(self);
+		}
 	}
 }
 
@@ -83,6 +87,7 @@ class Look : Command {
 		}
 		target = target.strip;
 		auto room = mob.containing.get!Room;
+		// No args? Room.
 		if (target == "") {
 			if (room) {
 				writer.writeln(room.lookAt(self));
@@ -91,13 +96,36 @@ class Look : Command {
 			}
 			return;
 		}
-		// We need to locate the mudobj in question.
-		// It might be in the player's inventory or in the room.
-		foreach (item; self.get!Inventory) {
-			auto mo = item.get!(MudObj);
-			if (mo.identifiedBy(target)) {
-				writer.writeln(mo.lookAt(self));
-				return;
+
+		if (room) {
+			// Might be a other here.
+			foreach (other; room.mobs) {
+				auto mo = other.get!MudObj;
+				if (mo && mo.identifiedBy(target)) {
+					writer.writeln(mo.lookAt(self));
+					return;
+				}
+			}
+
+			// Might be an item here.
+			foreach (item; room.items) {
+				auto mo = item.get!MudObj;
+				if (mo && mo.identifiedBy(target)) {
+					writer.writeln(mo.lookAt(self));
+					return;
+				}
+			}
+		}
+
+		// Might be in the inventory.
+		auto inv = self.get!Inventory;
+		if (inv) {
+			foreach (item; inv.items) {
+				auto mo = item.get!(MudObj);
+				if (mo && mo.identifiedBy(target)) {
+					writer.writeln(mo.lookAt(self));
+					return;
+				}
 			}
 		}
 		writer.writeln("I don't see that here.");

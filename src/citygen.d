@@ -140,6 +140,7 @@ class CityGen {
 
 		return zoneEntity;
 	}
+
 	void drawLine(Point source, Point target, void delegate(MudObj) roomModifier)
 		in {
 			enforce(source.z == target.z, "can only draw horizontal lines");
