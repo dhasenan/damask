@@ -141,6 +141,7 @@ class CityGen {
 					loc.z = 0;
 					auto e = cm.next;
 					auto r = e.add!Room;
+					r.zone = zoneEntity;
 					r.localPosition = loc;
 					auto mo = e.add!MudObj;
 					mo.name = "Some gate or other";
@@ -175,6 +176,7 @@ class CityGen {
 				}
 				auto e = cm.next;
 				auto r = e.add!Room;
+				r.zone = zoneEntity;
 				r.localPosition = p;
 				auto mo = e.add!MudObj;
 				mo.name = "Somewhere interesting";
@@ -197,7 +199,6 @@ class CityGen {
 
 		potentialStreets = potentialStreets.sort!((x, y) => x.length < y.length).uniq.array;
 		foreach (i, street; potentialStreets) {
-			/*
 			drawLine(street.a, street.b, (obj) {
 				obj.name = "A street!";
 				obj.description = "Yep, it's a street.";
@@ -205,7 +206,6 @@ class CityGen {
 			if (i > 1.5 * nexuses.length && uniform(0, 4) == 0) {
 				break;
 			}
-			*/
 		}
 
 		if (assignStartRoom) {
@@ -243,13 +243,14 @@ class CityGen {
 		* This assumes that the whole city can be guarded from (0, 0).
 		*/
 	bool isInCityCheap(Point point) {
-		auto line = Line(Point(0, 0, 0), point);
-		foreach (wall; walls) {
-			if (line.intersect(wall.line)) {
-				return false;
+		int crosses = 0;
+		for (auto i = point.x; i <= rooms.radius; i++) {
+			auto p = Point(i, point.y, 0);
+			if (rooms[p] == Invalid) {
+				crosses++;
 			}
 		}
-		return true;
+		return crosses % 2 == 1;
 	}
 
 	void drawLine(Point source, Point target, void delegate(MudObj) roomModifier)
@@ -348,6 +349,15 @@ enum WALL_HEIGHT = 3;
 
 struct Line {
 	Point a, b;
+	this(Point p1, Point p2) {
+		if (p1.x < p2.x || (p1.x == p2.x && p1.y < p2.y)) {
+			a = p1;
+			b = p2;
+		} else {
+			a = p2;
+			b = p1;
+		}
+	}
 	bool intersect(Line other) {
 		if (left > other.right || right < other.left || top < other.bottom || bottom > other.top) {
 			// bounding boxes don't overlap

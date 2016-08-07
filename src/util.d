@@ -125,6 +125,7 @@ struct Cube(T) {
 	}
 
 	this(int radius) {
+		enforce(radius >= 1, "Cubes must have a radius of at least 1");
 		_radius = radius;
 		// We want enough room to hold a center point, {radius} elements around, plus a margin of one.
 		_dim = (_radius + 1) * 2 + 1;
@@ -132,6 +133,8 @@ struct Cube(T) {
 		_off = _radius + 2;
 		_data = new T[_dim * _dim * _dim];
 	}
+
+	int radius() const @property { return _radius; }
 
 	private long _index(long x, long y, long z) {
 		enforce(x <= _radius
