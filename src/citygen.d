@@ -1,7 +1,11 @@
+// vim: set ts=2 sw=2 noexpandtab
 module dmud.citygen;
 
 import std.algorithm;
+import std.array;
+import std.conv;
 import std.exception;
+import std.experimental.logger;
 import std.format;
 import std.math;
 import std.random;
@@ -19,6 +23,8 @@ class CityGen {
 	int rVariance;
 	Cube!Entity rooms;
 	Entity zoneEntity;
+	Point[] towers;
+	Wall[] walls;
 
 	this() {
 		cm = ComponentManager.instance;
@@ -32,7 +38,6 @@ class CityGen {
 
 	Entity makeCity(bool assignStartRoom = true) {
 		// Pick towers for each Kdrant.
-		Point[] towers;
 		auto segments = uniform!"[]"(4, 8, rnd);
 		auto region = PI * 2 / segments;
 		for (int i = 0; i < segments; i++) {
@@ -40,7 +45,7 @@ class CityGen {
 			auto end = region * (i + 1);
 			auto angle = uniform!"[]"(start, end, rnd);
 			auto dist = uniform!"[]"(radius - rVariance, radius + rVariance, rnd);
-			auto tower = toCoords(angle, dist);
+			auto tower = toCoords(angle, dist, WALL_HEIGHT);
 			towers ~= tower;
 		}
 
@@ -49,7 +54,7 @@ class CityGen {
 		for (int i = 0; i < extraTowers; i++) {
 			auto angle = uniform!"[]"(0, PI * 2, rnd);
 			auto dist = uniform!"[]"(radius - rVariance, radius + rVariance, rnd);
-			towers ~= toCoords(angle, dist);
+			towers ~= toCoords(angle, dist, WALL_HEIGHT);
 		}
 		towers.sort!((a, b) => atan2(cast(real)a.x, cast(real)a.y) < atan2(cast(real)b.x, cast(real)b.y));
 
@@ -91,23 +96,116 @@ class CityGen {
 		foreach (i, tower; towers) {
 			auto targetIndex = (i + 1) % towers.length;
 			auto target = towers[targetIndex];
+			Entity[] wallRooms = [];
 			drawLine(tower, target, (obj) {
-					obj.name = "City Wall %s".format(obj.entity.value);
-					obj.description = "A section of city wall between Tower %s and Tower %s".format(i + 1, targetIndex + 1);
-					});
+				obj.name = "City Wall %s".format(obj.entity.value);
+				obj.description = "A section of city wall between Tower %s and Tower %s".format(i + 1, targetIndex + 1);
+				wallRooms ~= obj.entity;
+			});
+			walls ~= Wall(Line(tower, target), wallRooms);
 		}
 
-		// Now we want to create roads.
-		// We start with the center point (it's guaranteed to be within the walls.)
-		// Then we perturb it a bit, randomly, staying within the walls.
-		auto numRoads = uniform!"[]"(4, 7, rnd);
-		for (int i = 0; i < numRoads; i++) {
-			auto idx = uniform(0, towers.length, rnd);
-			auto t1 = towers[idx];
-			auto t2 = towers[(idx + 1) % towers.length];
-			auto wall = Line(t1, t2);
-			auto p = wall.randomPoint(rnd);
-			// grab a random point in the wall
+		auto numGates = max(towers.length / 2 + uniform!"[]"(-1, 1, rnd), 3);
+		auto numNexuses = uniform!"[]"(4, 8, rnd);
+		Point[] nexuses;
+		// Now we want to create major roads.
+		enum roadNames = [
+			"Turnwise Avenue",
+			"Short Street",
+			"Burmudgeon Road",
+			"The Street of Small Gods",
+			"Upper Volting",
+			"Frog's Walk",
+			"The Saddening"
+		];
+		// We need gates to be roughly evenly spaced.
+		// First count the total length of the wall.
+		auto len = walls.map!(x => x.rooms.length).sum;
+		// We'll go through them roughly evenly, +- 25%
+		auto commanded = len / numGates;
+		auto currentWall = 0;
+		auto curr = 0;
+		for (int i = 0; i < numGates; i++) {
+			// We're at the start of the segment that it commands.
+			// We want a gate somewhere near the middle.
+			// Also ensure signed integers.
+			int c = cast(int)commanded / 2;
+			int nextGate = c + uniform!"[]"(c / -2, c / 2, rnd);
+			int nextSegment = cast(int)commanded;
+			while (nextSegment > 0) {
+				if (nextGate == 0) {
+					// Plop down a gate below this room.
+					auto room = walls[currentWall].rooms[curr].get!Room;
+					assert(!!room);
+					auto loc = room.localPosition;
+					loc.z = 0;
+					auto e = cm.next;
+					auto r = e.add!Room;
+					r.localPosition = loc;
+					auto mo = e.add!MudObj;
+					mo.name = "Some gate or other";
+					mo.description = "This is some part of a gate or something";
+					rooms[loc] = e;
+					nexuses ~= loc;
+					nextGate = int.max;
+					infof("placing gate at %s", loc);
+				}
+				nextSegment--;
+				nextGate--;
+				curr++;
+				if (curr >= walls[currentWall].rooms.length) {
+					currentWall++;
+					currentWall %= walls.length;
+					curr = 0;
+				}
+			}
+		}
+
+		// Now the internal nexuses.
+		for (int i = 0; i < numNexuses; i++) {
+			for (int attempt = 0; attempt < 10; attempt++) {
+				auto x = uniform(-radius, radius, rnd);
+				auto y = uniform(-radius, radius, rnd);
+				auto p = Point(x, y, 0);
+				if (rooms[p] != None && rooms[p] != Invalid) {
+					continue;
+				}
+				if (!isInCityCheap(p)) {
+					continue;
+				}
+				auto e = cm.next;
+				auto r = e.add!Room;
+				r.localPosition = p;
+				auto mo = e.add!MudObj;
+				mo.name = "Somewhere interesting";
+				mo.description = "This is really an interesting place to be.";
+				rooms[p] = e;
+				nexuses ~= p;
+				break;
+			}
+		}
+
+		// We draw streets!
+		Line[] potentialStreets;
+		foreach (n1; nexuses) {
+			foreach (n2; nexuses) {
+				if (n1 != n2) {
+					potentialStreets ~= Line(n1, n2);
+				}
+			}
+		}
+
+		potentialStreets = potentialStreets.sort!((x, y) => x.length < y.length).uniq.array;
+		foreach (i, street; potentialStreets) {
+			/*
+			drawLine(street.a, street.b, (obj) {
+				obj.name = "A street!";
+				obj.description = "Yep, it's a street.";
+			});
+			if (i > 1.5 * nexuses.length && uniform(0, 4) == 0) {
+				break;
+			}
+			*/
 		}
 
 		if (assignStartRoom) {
@@ -139,6 +237,19 @@ class CityGen {
 		f.writeln(`</svg>`);
 
 		return zoneEntity;
+	}
+
+	/** Cheaply determines whether the point is in the city.
+		* This assumes that the whole city can be guarded from (0, 0).
+		*/
+	bool isInCityCheap(Point point) {
+		auto line = Line(Point(0, 0, 0), point);
+		foreach (wall; walls) {
+			if (line.intersect(wall.line)) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	void drawLine(Point source, Point target, void delegate(MudObj) roomModifier)
@@ -185,6 +296,8 @@ class CityGen {
 			double creditsPerRoom = (1.0 * min(ordinals, cardinals)) / max(ordinals, cardinals);
 			double credits = 0;
 			Point p = source;
+			infof("drawing line from %s to %s", source, target);
+			int drawn = 0;
 			while (p != target) {
 				auto last = p;
 				// Floating point inaccuracies.
@@ -200,7 +313,8 @@ class CityGen {
 						"traveled out of bounds! from point: %s to: %s reached: %s\nbounds: %s %s %s %s".format(
 							source, target, p, left, right, up, down));
 				Room room;
-				if (rooms[p] == None) {
+				if (rooms[p] == None || rooms[p] == Invalid) {
+					drawn++;
 					auto e = cm.next;
 					room = e.add!Room;
 					room.zone = zoneEntity;
@@ -213,7 +327,7 @@ class CityGen {
 				}
 
 				auto v = rooms[last].get!Room;
-				if (!room.dig(v, true)) {
+				if (v !is null && !room.dig(v, true)) {
 					throw new Exception("failed to dig from %s to %s".format(room.localPosition, v.localPosition));
 				}
 
@@ -221,7 +335,9 @@ class CityGen {
 				// While later things should be able to overwrite it, it shouldn't be the default.
 				auto lookOutBelow = p;
 				lookOutBelow.z = 0;
-				rooms[lookOutBelow] = Invalid;
+				if (rooms[lookOutBelow] == None) {
+					rooms[lookOutBelow] = Invalid;
+				}
 			}
 		}
 
@@ -256,7 +372,7 @@ struct Line {
 	}
 
 	Point randomPoint(TRand)(ref TRand rnd) {
-		return a + (b - a) * uniform(0, length, rnd);
+		return a + ((b - a) * uniform(0.0, 1.0, rnd));
 	}
 
 	double length() { return a.dist(b); }
@@ -271,6 +387,12 @@ struct Line {
 	long right() { return max(a.x, b.x); }
 	long top() { return min(a.y, b.y); }
 	long bottom() { return max(a.y, b.y); }
+}
+
+
+struct Wall {
+	Line line;
+	Entity[] rooms;
 }
 
 
@@ -324,20 +446,4 @@ unittest {
 				Point(1, 0, 0),
 				Point(1, 5, 0)),
 			PI * 1.5, 0.01));
-}
-
-Point toCoords(double angle, double length) {
-	Point p;
-	p.z = WALL_HEIGHT;
-	p.x = abs(lrint(cos(angle) * length));
-	p.y = abs(lrint(sin(angle) * length));
-	if (angle > PI * 0.5 && angle <= 1.5 * PI) {
-		// left half
-		p.x = -p.x;
-	}
-	if (angle > 0 && angle <= PI) {
-		// bottom half
-		p.y = -p.y;
-	}
-	return p;
 }

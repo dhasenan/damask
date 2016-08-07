@@ -30,6 +30,31 @@ mixin template JsonSupport() {
 	return Fiber.getThis();
 }
 
+Point randomPointInCircle(TRng)(ref TRng rng, double radius) {
+	import std.math : PI, sqrt;
+	import std.random : uniform;
+	auto angle = uniform(0.0, 2 * PI, rng);
+	auto r = uniform(0, radius ^^ 2, rng).sqrt;
+	return toCoords(angle, r);
+}
+
+Point toCoords(double angle, double length, long height = 0) {
+	import std.math : PI, sin, cos, lrint, abs;
+	Point p;
+	p.z = height;
+	p.x = abs(lrint(cos(angle) * length));
+	p.y = abs(lrint(sin(angle) * length));
+	if (angle > PI * 0.5 && angle <= 1.5 * PI) {
+		// left half
+		p.x = -p.x;
+	}
+	if (angle > 0 && angle <= PI) {
+		// bottom half
+		p.y = -p.y;
+	}
+	return p;
+}
+
 struct Point {
 	mixin JsonSupport;
 
