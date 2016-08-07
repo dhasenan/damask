@@ -11,6 +11,15 @@ import dmud.component;
 import dmud.domain;
 import dmud.util;
 
+@safe:
+
+class GenInfo : Component {
+	this() { canSave = false; }
+	// The type of thing that was generated.
+	// For instance, 'wall' or 'tower'.
+	string typeHint;
+}
+
 
 class CityGen {
 	ComponentManager cm;
@@ -63,6 +72,8 @@ class CityGen {
 				auto r = e.add!Room;
 				r.zone = zoneEntity;
 				auto room = e.add!MudObj;
+				auto gi = e.add!GenInfo;
+				gi.typeHint = "tower";
 				room.name = "The staircase of Tower %s (height %s)".format(i + 1, height);
 				room.description = "You are in a mighty tower named %s.".format(i + 1);
 				r.localPosition = Point(tower.x, tower.y, height);
@@ -80,6 +91,8 @@ class CityGen {
 				room.name = "The top of Tower %s".format(i + 1);
 				room.description = "You are at the top of a mighty tower named %s.".format(i + 1);
 				r.localPosition = tower;
+				auto gi = e.add!GenInfo;
+				gi.typeHint = "tower";
 				rooms[tower] = e;
 				if (last !is null) {
 					last.dig(r, true);
@@ -94,6 +107,8 @@ class CityGen {
 			drawLine(tower, target, (obj) {
 					obj.name = "City Wall %s".format(obj.entity.value);
 					obj.description = "A section of city wall between Tower %s and Tower %s".format(i + 1, targetIndex + 1);
+					auto gi = obj.entity.add!GenInfo;
+					gi.typeHint = "wall";
 					});
 		}
 
@@ -127,21 +142,38 @@ class CityGen {
 			assert(tower.y + off > 0, tower.toString);
 			f.writef("%s %s", tower.x + off, tower.y + off);
 		}
-		f.writeln(` Z" fill="#eeeeaa" stroke="black"/>`);
+		f.writeln(` Z" fill="#eeeeaa" stroke="#dedede"/>`);
 		foreach (e; rooms.nonDefaults) {
 			auto room = e.get!Room;
 			if (room is null) continue;
 			auto p = room.localPosition;
+			string color = "red";
+			auto gi = e.get!GenInfo;
+			if (gi) {
+				switch (gi.typeHint) {
+					case "tower":
+						color = "black";
+						break;
+					case "wall":
+						color = "#aaaaaa";
+						break;
+					case "street":
+						color = "#fe2274";
+						break;
+					default:
+						break;
+				}
+			}
 			assert(p.x + off > 0, p.toString);
 			assert(p.y + off > 0, p.toString);
-			f.writefln(`	<circle cx="%s" cy="%s" r="0.5" fill="red"/>`, p.x + off, p.y + off);
+			f.writefln(`	<circle cx="%s" cy="%s" r="0.5" fill="%s" stroke="black" stroke-width="0.1"/>`, p.x + off, p.y + off, color);
 		}
 		f.writeln(`</svg>`);
 
 		return zoneEntity;
 	}
 
-	void drawLine(Point source, Point target, void delegate(MudObj) roomModifier)
+	void drawLine(Point source, Point target, void delegate(MudObj) @safe roomModifier)
 		in {
 			enforce(source.z == target.z, "can only draw horizontal lines");
 		} body {
