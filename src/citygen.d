@@ -144,6 +144,16 @@ class CityGen {
 		}
 		f.writeln(` Z" fill="#eeeeaa" stroke="#dedede"/>`);
 		foreach (e; rooms.nonDefaults) {
+			if (e == Invalid) continue;
+			auto room = e.get!Room;
+			foreach (exit; room.exits) {
+				auto src = room.localPosition;
+				auto dest = exit.target.get!(Room).localPosition;
+				f.writefln(`<line x1="%s" y1="%s" x2="%s" y2="%s" stroke="black" stroke-width="0.2" />`,
+						src.x + off, src.y + off, dest.x + off, dest.y + off);
+			}
+		}
+		foreach (e; rooms.nonDefaults) {
 			auto room = e.get!Room;
 			if (room is null) continue;
 			auto p = room.localPosition;
@@ -166,7 +176,7 @@ class CityGen {
 			}
 			assert(p.x + off > 0, p.toString);
 			assert(p.y + off > 0, p.toString);
-			f.writefln(`	<circle cx="%s" cy="%s" r="0.5" fill="%s" stroke="black" stroke-width="0.1"/>`, p.x + off, p.y + off, color);
+			f.writefln(`	<circle cx="%s" cy="%s" r="0.4" fill="%s" stroke="black" stroke-width="0.1"/>`, p.x + off, p.y + off, color);
 		}
 		f.writeln(`</svg>`);
 
