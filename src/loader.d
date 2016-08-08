@@ -4,7 +4,6 @@ import dmud.component;
 import dmud.domain;
 import dmud.player;
 
-import url;
 import jsonizer;
 
 import std.algorithm;
@@ -14,53 +13,6 @@ import std.file;
 import std.json;
 import std.string;
 @safe:
-
-void loadAll(URL couchdb, string database) {
-	makeTestWorld();
-	/*
-	auto client = new CouchClient(couchdb);
-    infof("trying to use database %s", database);
-    infof("databases: %s", client.databases);
-	if (!client.databases.any!(x => x == database)) {
-        infof("You asked to load a world from %s, but there's no world there. I'm generating " ~
-              "a tiny one from scratch and saving it there. " ~
-              "If you think you are receiving this message in error, make sure that you " ~
-              "configured your MUD with the right paths and the world files you expected are " ~
-              "there. Note that the paths are case sensitive -- /foo/bar is not the same as " ~
-              "/Foo/Bar.", database);
-		client.database(database).createDatabase();
-		makeTestWorld;
-		saveWorld;
-		return;
-	}
-
-	// We save everything about the world. Everything.
-	// That means we can just load everything out of the database as is.
-	auto db = client.database(database);
-	foreach (doc; db.allDocs) {
-		inflate(doc);
-	}
-	*/
-}
-
-/*
-void saveWorld() {
-	throw new Exception("not implemented");
-}
-
-void inflate(JSONValue doc) @trusted {
-	auto comp = doc.fromJSON!Component;
-	if (comp) {
-		ComponentManager.instance.add(comp.entity, comp);
-	} else {
-		warning("unrecognized component " ~ doc.toPrettyString);
-	}
-	// This is where we'll start up all the scripts.
-}
-
-void save(World world, string p) {
-}
-*/
 
 void makeTestWorld() {
 	auto c = ComponentManager.instance;

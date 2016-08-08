@@ -6,6 +6,7 @@
 		"taggedalgebraic": "0.10.1",
 		"units-d": "0.1.0",
 		"jsonizer": "0.5.2",
+		"dosimplex": "0.3.2-beta",
 		"d2sqlite3": "0.9.7",
 		"urld": "0.5.0"
 	}

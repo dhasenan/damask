@@ -8,8 +8,6 @@ import dmud.loader;
 import dmud.player;
 import dmud.server;
 
-import url;
-
 import core.thread;
 import std.concurrency;
 import std.experimental.logger;
@@ -56,7 +54,6 @@ int main(string[] args)
   db.init;
 
 	setupScheduler;
-	//loadAll("localhost:5984".parseURL, "dmud");
 	ushort port = 5005;
 	auto server = new Server(port, db);
 	info("listening on port ", port);

@@ -5,9 +5,8 @@
 	"authors": ["dhasenan"],
 	"dependencies": {
 		"jsonizer": "~>0.7.0",
-		"subscribed": "~>1.1.1",
 		"units-d": "~>0.1.0",
-    "urld": "~>1.0.0",
-    "d2sqlite3": "~>0.9.7"
+		"d2sqlite3": "~>0.9.7",
+		"dosimplex": "~>0.3.2-beta"
 	}
 }
