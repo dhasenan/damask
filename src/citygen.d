@@ -9,11 +9,20 @@ import std.experimental.logger;
 import std.format;
 import std.math;
 import std.random;
+import std.range;
 import std.stdio;
 
 import dmud.component;
 import dmud.domain;
 import dmud.util;
+
+
+T orDefault(T, U)(T[U] aa, U val) {
+	if (auto p = val in aa) {
+		return *p;
+	}
+	return T.init;
+}
 
 
 class CityGen {
@@ -108,6 +117,7 @@ class CityGen {
 		auto numGates = max(towers.length / 2 + uniform!"[]"(-1, 1, rnd), 3);
 		auto numNexuses = uniform!"[]"(4, 8, rnd);
 		Point[] nexuses;
+		Point[] gates;
 		// Now we want to create major roads.
 		enum roadNames = [
 			"Turnwise Avenue",
@@ -148,6 +158,7 @@ class CityGen {
 					mo.description = "This is some part of a gate or something";
 					rooms[loc] = e;
 					nexuses ~= loc;
+					gates ~= loc;
 					nextGate = int.max;
 					infof("placing gate at %s", loc);
 				}
@@ -174,6 +185,9 @@ class CityGen {
 				if (!isInCityCheap(p)) {
 					continue;
 				}
+				if (nexuses.canFind!(x => x.dist(p) < 25)) {
+					continue;
+				}
 				auto e = cm.next;
 				auto r = e.add!Room;
 				r.zone = zoneEntity;
@@ -198,7 +212,29 @@ class CityGen {
 		}
 
 		potentialStreets = potentialStreets.sort!((x, y) => x.length < y.length).uniq.array;
+		Line[][Point] nexusConnections;
 		foreach (i, street; potentialStreets) {
+			if (gates.canFind(street.a) && gates.canFind(street.b)) {
+				continue;
+			}
+			auto connA = nexusConnections.orDefault(street.a);
+			auto connB = nexusConnections.orDefault(street.b);
+			if (connA.length >= 5 || connB.length >= 5) {
+				continue;
+			}
+			bool tooClose = false;
+			foreach (existing; chain(connA, connB)) {
+				auto d = angleLines(existing, street);
+				if (d < PI*0.05 || d > PI*1.95) {
+					tooClose = true;
+					break;
+				}
+			}
+			if (tooClose) continue;
+			connA ~= street;
+			connB ~= street;
+			nexusConnections[street.a] = connA;
+			nexusConnections[street.b] = connB;
 			drawLine(street.a, street.b, (obj) {
 				obj.name = "A street!";
 				obj.description = "Yep, it's a street.";
@@ -429,7 +465,7 @@ unittest {
 	assert(p.y == -71, p.toString);
 }
 
-double angleOf(Point p) {
+double angleOf(Point p) pure {
 	auto a = atan2(cast(real)p.x, cast(real)p.y);
 	if (a < 0) {
 		a += PI;
@@ -437,10 +473,29 @@ double angleOf(Point p) {
 	return a;
 }
 
-double angle3(Point a, Point vertex, Point b) {
+double angleLines(Line a, Line b) pure {
+	if (a.a == b.a) {
+		return angle3(a.b, a.a, b.b);
+	}
+	if (a.b == b.a) {
+		return angle3(a.a, a.b, b.b);
+	}
+	if (a.a == b.b) {
+		return angle3(a.b, a.a, b.a);
+	}
+	if (a.b == b.b) {
+		return angle3(a.a, a.b, b.a);
+	}
+	enforce(false, "lines must share a vertex in order to calculate angle");
+	assert(0);
+}
+
+double angle3(Point a, Point vertex, Point b) pure {
 	auto a1 = a - vertex;
 	auto b1 = b - vertex;
-	return angleOf(a) - angleOf(b);
+	// Depending on angleOf, each could be as low as -2PI + epsilon
+	// So we could get down to -4*PI
+	return ((angleOf(a) - angleOf(b)) + (16*PI)) % (2*PI);
 }
 
 unittest {
