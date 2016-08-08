@@ -130,7 +130,7 @@ class CityGen {
 		}
 
 		auto numGates = max(towers.length / 2 + uniform!"[]"(-1, 1, rnd), 3);
-		auto numNexuses = uniform!"[]"(4, 8, rnd);
+		auto numNexuses = uniform!"[]"(12, 20, rnd);
 		Point[] nexuses;
 		Point[] gates;
 		// Now we want to create major roads.
@@ -175,7 +175,7 @@ class CityGen {
 					nexuses ~= loc;
 					gates ~= loc;
 					nextGate = int.max;
-					infof("placing gate at %s", loc);
+					//infof("placing gate at %s", loc);
 				}
 				nextSegment--;
 				nextGate--;
@@ -200,7 +200,7 @@ class CityGen {
 				if (!isInCityCheap(p)) {
 					continue;
 				}
-				if (nexuses.canFind!(x => x.dist(p) < 25)) {
+				if (nexuses.canFind!(x => x.dist(p) < 15)) {
 					continue;
 				}
 				auto e = cm.next;
@@ -256,7 +256,7 @@ class CityGen {
 				auto gi = obj.entity.add!GenInfo;
 				gi.typeHint = "street";
 			});
-			if (i > 1.5 * nexuses.length && uniform(0, 4) == 0) {
+			if (i > 2.5 * nexuses.length && uniform(0, 4) == 0) {
 				break;
 			}
 		}
@@ -429,7 +429,7 @@ class CityGen {
 			double creditsPerRoom = (1.0 * min(ordinals, cardinals)) / max(ordinals, cardinals);
 			double credits = 0;
 			Point p = source;
-			infof("drawing line from %s to %s", source, target);
+			//infof("drawing line from %s to %s", source, target);
 			int drawn = 0;
 			while (p != target) {
 				auto last = p;
