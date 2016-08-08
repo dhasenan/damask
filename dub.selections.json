@@ -1,0 +1,12 @@
+{
+	"fileVersion": 1,
+	"versions": {
+		"std_data_json": "0.18.1",
+		"subscribed": "1.1.1",
+		"taggedalgebraic": "0.10.1",
+		"units-d": "0.1.0",
+		"jsonizer": "0.5.2",
+		"d2sqlite3": "0.9.7",
+		"urld": "0.5.0"
+	}
+}

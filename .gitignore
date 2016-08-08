@@ -1,0 +1,14 @@
+.dub
+docs.json
+__dummy.html
+*.o
+*.obj
+__test__library__
+dmud
+*.log
+*.userprefs
+*.sqlite
+*.swp
+.project
+.settings
+.dlangidews
