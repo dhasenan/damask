@@ -253,18 +253,69 @@ class CityGen {
 			drawLine(street.a, street.b, (obj) {
 				obj.name = "A street!";
 				obj.description = "Yep, it's a street.";
+				auto gi = obj.entity.add!GenInfo;
+				gi.typeHint = "street";
 			});
 			if (i > 1.5 * nexuses.length && uniform(0, 4) == 0) {
 				break;
 			}
 		}
 
+
+		// Insert a grid inside the remaining ground level spaces.
+		foreach (yref; [-1, 1]) {
+			for (int y = 0; y < radius + rVariance; y++) {
+				if (rooms[Point(0, y * yref, WALL_HEIGHT)] != None) {
+					// We hit the wall.
+					break;
+				}
+				foreach (xref; [-1, 1]) {
+					for (int x = 0; x < radius + rVariance; x++) {
+						if (rooms[Point(x * xref, y * yref, WALL_HEIGHT)] != None) {
+							// We hit the wall. Stop now.
+							break;
+						}
+						if (y % 4 != 0) {
+							if (x % 2 != 0) {
+								continue;
+							}
+						}
+						auto p = Point(x * xref, y * yref, 0);
+						if (rooms[p] != None) {
+							continue;
+						}
+						auto e = cm.next;
+						rooms[p] = e;
+						auto room = e.add!Room;
+						room.localPosition = p;
+						room.zone = zoneEntity;
+						auto mo = e.add!MudObj;
+						auto gi = e.add!GenInfo;
+						gi.typeHint = "sideStreet";
+						mo.name = "A side street";
+						mo.description = "Just a side street";
+						// try adding exits
+						foreach (dir; [Point(0, 1, 0), Point(0, -1, 0), Point(1, 0, 0), Point(-1, 0, 0)]) {
+							auto existing = rooms[p + dir];
+							auto r2 = existing.get!Room;
+							if (r2) {
+								enforce(r2.dig(room, true),
+										"failed to dig between side streets at %s and %s".format(
+											room.localPosition, r2.localPosition));
+							}
+						}
+					}
+				}
+			}
+		}
+
+
 		if (assignStartRoom) {
 			auto w = world.get!World;
 			w.startingRoom = rooms.nonDefaults.filter!(x => x != Invalid).front;
 		}
 
-		auto f = File("/home/dhasenan/foo.svg", "w");
+		auto f = File("city%s.svg".format(zoneEntity.value), "w");
 		f.writef(`<svg width="%s" height="%s" xmlns="http://www.w3.org/2000/svg">
 				<path d="M `, radius * 2 + 10, radius * 2 + 10);
 		auto off = radius + 2;
@@ -303,6 +354,9 @@ class CityGen {
 						break;
 					case "street":
 						color = "#fe2274";
+						break;
+					case "sideStreet":
+						color = "#aafe74";
 						break;
 					default:
 						break;
