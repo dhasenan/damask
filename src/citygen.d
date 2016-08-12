@@ -12,6 +12,8 @@ import std.random;
 import std.range;
 import std.stdio;
 
+import dosimplex.generator;
+
 import dmud.component;
 import dmud.domain;
 import dmud.util;
@@ -24,6 +26,24 @@ class GenInfo : Component {
 	// For instance, 'wall' or 'tower'.
 	string typeHint;
 }
+
+enum cardinalDirections = [
+	Point(1, 0, 0),
+	Point(-1, 0, 0),
+	Point(0, 1, 0),
+	Point(0, -1, 0)
+];
+
+enum flatDirections = [
+	Point(1, 0, 0),
+	Point(-1, 0, 0),
+	Point(0, 1, 0),
+	Point(0, -1, 0),
+	Point(1, 1, 0),
+	Point(1, -1, 0),
+	Point(-1, 1, 0),
+	Point(-1, -1, 0)
+];
 
 
 T orDefault(T, U)(T[U] aa, U val) {
@@ -53,6 +73,8 @@ class CityGen {
 		zoneEntity = cm.next;
 		zoneEntity.add!Zone;
 	}
+
+	int limit() @property { return radius + rVariance; }
 
 	Entity makeCity(bool assignStartRoom = true) {
 		// Pick towers for each Kdrant.
@@ -129,139 +151,37 @@ class CityGen {
 			walls ~= Wall(Line(tower, target), wallRooms);
 		}
 
-		auto numGates = max(towers.length / 2 + uniform!"[]"(-1, 1, rnd), 3);
-		auto numNexuses = uniform!"[]"(12, 20, rnd);
-		Point[] nexuses;
-		Point[] gates;
-		// Now we want to create major roads.
-		enum roadNames = [
-			"Turnwise Avenue",
-			"Short Street",
-			"Burmudgeon Road",
-			"The Street of Small Gods",
-			"Upper Volting",
-			"Frog's Walk",
-			"The Saddening"
-		];
-		// We need gates to be roughly evenly spaced.
-		// First count the total length of the wall.
-		auto len = walls.map!(x => x.rooms.length).sum;
-		// We'll go through them roughly evenly, +- 25%
-		auto commanded = len / numGates;
-		auto currentWall = 0;
-		auto curr = 0;
-		for (int i = 0; i < numGates; i++) {
-			// We're at the start of the segment that it commands.
-			// We want a gate somewhere near the middle.
-			// Also ensure signed integers.
-			int c = cast(int)commanded / 2;
-			int nextGate = c + uniform!"[]"(c / -2, c / 2, rnd);
-			int nextSegment = cast(int)commanded;
-			while (nextSegment > 0) {
-				if (nextGate == 0) {
-					// Plop down a gate below this room.
-					auto room = walls[currentWall].rooms[curr].get!Room;
-					assert(!!room);
-					auto loc = room.localPosition;
-					loc.z = 0;
-					auto e = cm.next;
-					auto r = e.add!Room;
-					r.zone = zoneEntity;
-					r.localPosition = loc;
-					auto mo = e.add!MudObj;
-					mo.name = "Some gate or other";
-					mo.description = "This is some part of a gate or something";
-					rooms[loc] = e;
-					nexuses ~= loc;
-					gates ~= loc;
-					nextGate = int.max;
-					//infof("placing gate at %s", loc);
-				}
-				nextSegment--;
-				nextGate--;
-				curr++;
-				if (curr >= walls[currentWall].rooms.length) {
-					currentWall++;
-					currentWall %= walls.length;
-					curr = 0;
-				}
-			}
-		}
-
-		// Now the internal nexuses.
-		for (int i = 0; i < numNexuses; i++) {
-			for (int attempt = 0; attempt < 10; attempt++) {
-				auto x = uniform(-radius, radius, rnd);
-				auto y = uniform(-radius, radius, rnd);
-				auto p = Point(x, y, 0);
-				if (rooms[p] != None && rooms[p] != Invalid) {
-					continue;
-				}
-				if (!isInCityCheap(p)) {
-					continue;
-				}
-				if (nexuses.canFind!(x => x.dist(p) < 15)) {
-					continue;
-				}
-				auto e = cm.next;
-				auto r = e.add!Room;
-				r.zone = zoneEntity;
-				r.localPosition = p;
-				auto mo = e.add!MudObj;
-				mo.name = "Somewhere interesting";
-				mo.description = "This is really an interesting place to be.";
-				rooms[p] = e;
-				nexuses ~= p;
-				break;
-			}
-		}
-
-		// We draw streets!
-		Line[] potentialStreets;
-		foreach (n1; nexuses) {
-			foreach (n2; nexuses) {
-				if (n1 != n2) {
-					potentialStreets ~= Line(n1, n2);
-				}
-			}
-		}
-
-		potentialStreets = potentialStreets.sort!((x, y) => x.length < y.length).uniq.array;
-		Line[][Point] nexusConnections;
-		foreach (i, street; potentialStreets) {
-			if (gates.canFind(street.a) && gates.canFind(street.b)) {
+		auto noise = SNoiseGenerator(18842);
+		// First, we draw the major roads...
+		foreach (p; SimpleCityRoomRange(this)) {
+			auto val = noise.noise2D(p.x, p.y);
+			infof("noise at %s: %s", p, val);
+			if (val >= -0.2) {
 				continue;
 			}
-			auto connA = nexusConnections.orDefault(street.a);
-			auto connB = nexusConnections.orDefault(street.b);
-			if (connA.length >= 5 || connB.length >= 5) {
-				continue;
-			}
-			bool tooClose = false;
-			foreach (existing; chain(connA, connB)) {
-				auto d = angleLines(existing, street);
-				if (d < PI*0.05 || d > PI*1.95) {
-					tooClose = true;
-					break;
+			auto e = cm.next;
+			rooms[p] = e;
+			auto room = e.add!Room;
+			room.localPosition = p;
+			room.zone = zoneEntity;
+			auto mo = e.add!MudObj;
+			auto gi = e.add!GenInfo;
+			gi.typeHint = "street";
+			mo.name = "A major street";
+			mo.description = "A part of a major street";
+			// try adding exits
+			foreach (dir; flatDirections) {
+				auto existing = rooms[p + dir];
+				auto r2 = existing.get!Room;
+				if (r2) {
+					enforce(r2.dig(room, true),
+							"failed to dig between side streets at %s and %s".format(
+								room.localPosition, r2.localPosition));
 				}
-			}
-			if (tooClose) continue;
-			connA ~= street;
-			connB ~= street;
-			nexusConnections[street.a] = connA;
-			nexusConnections[street.b] = connB;
-			drawLine(street.a, street.b, (obj) {
-				obj.name = "A street!";
-				obj.description = "Yep, it's a street.";
-				auto gi = obj.entity.add!GenInfo;
-				gi.typeHint = "street";
-			});
-			if (i > 2.5 * nexuses.length && uniform(0, 4) == 0) {
-				break;
 			}
 		}
 
-
+		/+
 		// Insert a grid inside the remaining ground level spaces.
 		foreach (yref; [-1, 1]) {
 			for (int y = 0; y < radius + rVariance; y++) {
@@ -308,6 +228,7 @@ class CityGen {
 				}
 			}
 		}
+		+/
 
 
 		if (assignStartRoom) {
@@ -317,8 +238,8 @@ class CityGen {
 
 		auto f = File("city%s.svg".format(zoneEntity.value), "w");
 		f.writef(`<svg width="%s" height="%s" xmlns="http://www.w3.org/2000/svg">
-				<path d="M `, radius * 2 + 10, radius * 2 + 10);
-		auto off = radius + 2;
+				<path d="M `, limit * 2 + 10, limit * 2 + 10);
+		auto off = limit;
 		foreach (i, tower; towers) {
 			if (i > 0) {
 				f.writef(" L ");
@@ -362,7 +283,8 @@ class CityGen {
 						break;
 				}
 			}
-			assert(p.x + off > 0, p.toString);
+			assert(p.x + off > 0 && p.y + off > 0, "tried to draw out of bounds: %s + %s -> %s,%s".format(
+						p, off, p.x + off, p.y + off));
 			assert(p.y + off > 0, p.toString);
 			f.writefln(`	<circle cx="%s" cy="%s" r="0.4" fill="%s" stroke="black" stroke-width="0.1"/>`, p.x + off, p.y + off, color);
 		}
@@ -371,18 +293,50 @@ class CityGen {
 		return zoneEntity;
 	}
 
-	/** Cheaply determines whether the point is in the city.
-		* This assumes that the whole city can be guarded from (0, 0).
-		*/
+	/** Cheaply determines whether the point is in the city. */
 	bool isInCityCheap(Point point) {
+		foreach (dir; cardinalDirections) {
+			auto p = Point(point.x, point.y, WALL_HEIGHT);
+			bool found = false;
+			while (isInBounds(p)) {
+				if (rooms[p] != None) {
+					found = true;
+					break;
+				}
+				p += dir;
+			}
+			if (!found) {
+				return false;
+			}
+		}
+		return true;
+		/+
 		int crosses = 0;
 		for (auto i = point.x; i <= rooms.radius; i++) {
 			auto p = Point(i, point.y, 0);
 			if (rooms[p] == Invalid) {
+				infof("point %s right crosses invalid room at %s", point, p);
 				crosses++;
 			}
 		}
-		return crosses % 2 == 1;
+		if (crosses % 2 == 0) return false;
+		crosses = 0;
+		for (auto i = point.x; i >= -rooms.radius; i--) {
+			auto p = Point(i, point.y, 0);
+			if (rooms[p] == Invalid) {
+				infof("point %s left crosses invalid room at %s", point, p);
+				crosses++;
+			}
+		}
+		if (crosses % 2 == 0) return false;
+		return true;
+		+/
+	}
+
+	bool isInBounds(Point p) {
+		return abs(p.x) <= limit &&
+			abs(p.y) <= limit &&
+			abs(p.z) <= limit;
 	}
 
 	void drawLine(Point source, Point target, void delegate(MudObj) @safe roomModifier)
@@ -473,8 +427,46 @@ class CityGen {
 				}
 			}
 		}
+}
 
+/**
+	A range over rooms in the city.
+ */
+struct SimpleCityRoomRange {
+	CityGen cg;
+	int x, y;
 
+	@disable this();
+
+	this(CityGen cg) {
+		this.cg = cg;
+		this.x = -cg.limit + 1;
+		this.y = -cg.limit + 1;
+	}
+
+	Point front() {
+		return Point(x, y, 0);
+	}
+
+	bool empty() {
+		return y >= cg.limit;
+	}
+
+	void popFront() {
+		while (!empty) {
+			x++;
+			if (x > cg.limit) {
+				x = -cg.limit + 1;
+				y++;
+			}
+			if (y > cg.limit) {
+				return;
+			}
+			if (cg.isInCityCheap(front)) {
+				return;
+			}
+		}
+	}
 }
 
 enum WALL_HEIGHT = 3;
