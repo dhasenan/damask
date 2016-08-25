@@ -5,9 +5,10 @@
 		"subscribed": "1.1.1",
 		"taggedalgebraic": "0.10.1",
 		"units-d": "0.1.0",
-		"jsonizer": "0.5.2",
+		"jsonizer": "0.7.0",
 		"dosimplex": "0.3.2-beta",
 		"d2sqlite3": "0.9.7",
+		"tango": "1.0.3+2.068",
 		"urld": "0.5.0"
 	}
 }

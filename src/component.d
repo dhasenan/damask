@@ -156,7 +156,7 @@ unittest {
   f.name = "hi there";
   cm.add(entity, f);
   assert(f.entity == entity);
-  assert(cast(ulong) f.entity > 0);
+  assert(f.entity.value > 0);
   auto f2 = cm.get!Foo(entity);
   assert(f2.name == "hi there");
 }

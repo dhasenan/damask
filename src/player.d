@@ -22,7 +22,7 @@ import dmud.util;
 class PlayerInputBehavior : Behavior {
 	Queue!string commands;
 	Behavior child;
-	Command next(Time now) { return null; }
+	Command next(SimTime now) { return null; }
 }
 
 abstract class InputProcessor {

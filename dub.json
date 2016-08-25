@@ -7,6 +7,7 @@
 		"jsonizer": "~>0.7.0",
 		"units-d": "~>0.1.0",
 		"d2sqlite3": "~>0.9.7",
-		"dosimplex": "~>0.3.2-beta"
+		"dosimplex": "~>0.3.2-beta",
+    "tango": "~>1.0.3"
 	}
 }
