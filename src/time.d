@@ -48,6 +48,8 @@ struct SimTime {
 
 class SimClock {
 	SimTime now;
+	Duration tickDuration = dur!"msec"(250);
+
 	void tick() {
 		now = now + Span.iota;
 	}

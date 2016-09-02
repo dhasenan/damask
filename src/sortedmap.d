@@ -39,6 +39,13 @@ if (is(typeof(binaryFun!less(Key.init, Key.init))))
 	}
 
 	/**
+		* The number of elements this map contains.
+		*/
+	size_t length() {
+		return tree.length;
+	}
+
+	/**
 		* Whether the given key exists in this map.
 		*/
 	bool opIn_r(Key key) {
@@ -95,6 +102,24 @@ if (is(typeof(binaryFun!less(Key.init, Key.init))))
 		*/
 	void removeOne(Key key) {
 		tree.removeKey(Elem(key, Value.init));
+	}
+
+	/**
+		* Fetch the first element from the map.
+		*
+		* The map retains this value.
+		*/
+	Elem front() {
+		return tree.front;
+	}
+
+	/**
+		* Remove the first element from the map and yield its value.
+		*/
+	Value pop() {
+		auto e = tree.front;
+		tree.removeFront;
+		return e.value;
 	}
 
 	void removeAll(Key key) {
