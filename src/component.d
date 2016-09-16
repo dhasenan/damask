@@ -142,7 +142,7 @@ class ComponentManager {
 	const(Entity[]) entities() {
 		return _components.keys;
 	}
-	*/
+  */
 }
 
 

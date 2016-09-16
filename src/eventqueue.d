@@ -12,10 +12,10 @@ import tango.math.random.Random;
 @trusted:
 
 /**
-	* An EventQueue is a way to arrange callbacks in time in an efficient manner.
-	*
-	* It can be used as part of a scheduler.
-	*/
+  * An EventQueue is a way to arrange callbacks in time in an efficient manner.
+  *
+  * It can be used as part of a scheduler.
+  */
 class EventQueue(Elem) {
 	// We implement the queue simply as a sorted queue. It's simple and convenient.
 	// We could optimize further, but it won't affect the interface, so we can leave that for later.

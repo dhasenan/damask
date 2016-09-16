@@ -3,11 +3,11 @@ module dmud.container;
 @safe:
 
 /**
-	* A queue implemented as a circular buffer.
+  * A queue implemented as a circular buffer.
   *
-	* Queues have a fixed size (compile time constant, default 50). You cannot push more than that
-	* number of elements into the queue; further pushes are rejected.
-	*/
+  * Queues have a fixed size (compile time constant, default 50). You cannot push more than that
+  * number of elements into the queue; further pushes are rejected.
+  */
 struct Queue(T, int size = 50) {
 	T[size] array;
 	int first = 0;

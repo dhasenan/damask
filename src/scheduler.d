@@ -5,14 +5,14 @@ import core.thread;
 import std.concurrency;
 
 /**
-	* A fiber scheduler specialized to our needs.
-	*
-	* We have a simulation that needs to proceed in fixed timesteps, and that covers most of our code.
-	* We use an event queue so we can (hopefully!) schedule occasional tasks efficiently.
-	* We want to alert on anything that takes too long to execute.
-	* We also want some items that are automatically scheduled very frequently.
-	* This all requires a custom scheduler.
-	*/
+  * A fiber scheduler specialized to our needs.
+  *
+  * We have a simulation that needs to proceed in fixed timesteps, and that covers most of our code.
+  * We use an event queue so we can (hopefully!) schedule occasional tasks efficiently.
+  * We want to alert on anything that takes too long to execute.
+  * We also want some items that are automatically scheduled very frequently.
+  * This all requires a custom scheduler.
+  */
 class MudScheduler : Scheduler {
 	private EventQueue!Fiber _queue;
 	private SimClock _clock;
@@ -31,12 +31,12 @@ class MudScheduler : Scheduler {
 	EventQueue!Fiber queue() { return _queue; }
 
 	/**
-		* Create a system fiber.
-		*
-		* We cycle through system fibers at least once per tick and whenever we are not busy with
-		* simulation stuff. So if the simulation completes its tick in half the time we allotted, we
-		* spend the rest of the time running through 
-		*/
+	  * Create a system fiber.
+	  *
+	  * We cycle through system fibers at least once per tick and whenever we are not busy with
+	  * simulation stuff. So if the simulation completes its tick in half the time we allotted, we
+	  * spend the rest of the time running through 
+	  */
 	Fiber system(void delegate() op) {
 		Fiber f = create(op);
 		_systemFibers ~= f;
@@ -44,11 +44,11 @@ class MudScheduler : Scheduler {
 	}
 
 	/**
-		* Create a client fiber.
-		*
-		* Client fibers get scheduled every tick by default, but they can use triggers or sleep and
-		* thereby not be scheduled for a while. They will never be scheduled twice in one tick.
-		*/
+	  * Create a client fiber.
+	  *
+	  * Client fibers get scheduled every tick by default, but they can use triggers or sleep and
+	  * thereby not be scheduled for a while. They will never be scheduled twice in one tick.
+	  */
 	Fiber client(void delegate() op) {
 		Fiber f = create(op);
 		_clientFibers ~= f;
