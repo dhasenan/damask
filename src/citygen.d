@@ -3,6 +3,7 @@ module dmud.citygen;
 
 import std.algorithm;
 import std.array;
+import std.container.dlist;
 import std.conv;
 import std.exception;
 import std.experimental.logger;
@@ -53,30 +54,235 @@ T orDefault(T, U)(T[U] aa, U val) {
 	return T.init;
 }
 
-
-class CityGen {
+abstract class Gen {
 	ComponentManager cm;
 	Mt19937 rnd;
 	int radius;
 	int rVariance;
 	Cube!Entity rooms;
 	Entity zoneEntity;
-	Point[] towers;
-	Wall[] walls;
 
-	this() {
+	this(int minRadius, int maxRadius, int variance) {
 		cm = ComponentManager.instance;
-		rnd = Mt19937(112);
-		radius = uniform(60, 100, rnd);
-		rVariance = radius / 10;
+		rnd = Mt19937(unpredictableSeed);
+		radius = uniform(minRadius, maxRadius, rnd);
+		rVariance = variance;
 		rooms = Cube!Entity(radius + rVariance);
 		zoneEntity = cm.next;
 		zoneEntity.add!Zone;
 	}
 
+  abstract Entity generate(bool assignStartRoom = false);
+
 	int limit() @property { return radius + rVariance; }
 
-	Entity makeCity(bool assignStartRoom = true) {
+  void writeToFile(string filename, string[string] colors) {
+    enum scale = 20;
+    enum stroke = 0.1 * scale;
+    enum exitwidth = 0.2 * scale;
+    enum rad = 0.4 * scale;
+    long minX, minY, maxX, maxY;
+    foreach (e; rooms.nonDefaults) {
+      auto p = e.get!(Room).localPosition;
+      if (minX > p.x) {
+        minX = p.x;
+      }
+      if (minY > p.y) {
+        minY = p.y;
+      }
+      if (maxX < p.x) {
+        maxX = p.x;
+      }
+      if (maxY < p.y) {
+        maxY = p.y;
+      }
+    }
+		auto f = File(filename, "w");
+		f.writef(`<svg width="%s" height="%s" xmlns="http://www.w3.org/2000/svg">
+`,
+        (maxX - minX + 10) * scale,
+        (maxY - minY + 10) * scale);
+		auto offX = -minX + 5;
+		auto offY = -minY + 5;
+    auto off = Point(offX, offY, 0) * scale;
+    f.writef(`<!-- off: %s scale: %s -->
+`, off, scale);
+		foreach (e; rooms.nonDefaults) {
+			if (e == Invalid) continue;
+			auto room = e.get!Room;
+			foreach (exit; room.exits) {
+				auto src = room.localPosition * scale + off;
+				auto dest = exit.target.get!(Room).localPosition * scale + off;
+				f.writefln(`<line x1="%s" y1="%s" x2="%s" y2="%s" stroke="black" stroke-width="%s" />`,
+						src.x, src.y, dest.x, dest.y, exitwidth);
+			}
+		}
+		foreach (e; rooms.nonDefaults) {
+			auto room = e.get!Room;
+			if (room is null) continue;
+			auto p = (room.localPosition * scale) + off;
+			string color = "red";
+			auto gi = e.get!GenInfo;
+			if (gi) {
+        auto cp = gi.typeHint in colors;
+        if (cp) color = *cp;
+			}
+			assert(p.x > 0 && p.y > 0, "tried to draw out of bounds: %s".format(p));
+			f.writefln(`<!-- %s -->`, room.localPosition);
+			f.writefln(`	<circle cx="%s" cy="%s" r="%s" fill="%s" stroke="black" stroke-width="%s"/>`,
+          p.x, p.y, rad, color, stroke);
+		}
+		f.writeln(`</svg>`);
+  }
+}
+
+class IslandGenInfo : Component {
+  double fecundity = 1;
+  bool isWater = false;
+}
+
+class IslandGen : Gen {
+  enum droprate = 0.1;
+  enum dropvar = 0.1;
+  this() {
+    super(60, 100, 8);
+  }
+
+  Entity generate(bool assignStartRoom = false) {
+    // Start out with a handful of rooms in the center half.
+    DList!Point queue;
+    int roomcount = 0;
+    auto nexuses = uniform(3, 5, rnd);
+    auto waters = uniform(2, nexuses + 1, rnd);
+    Point[] waterSources;
+    foreach (i; 0..nexuses) {
+      auto p = randomPointInCircle(rnd, radius / 2.3);
+      if (i < waters) waterSources ~= p;
+      auto r = makeRoom(p, 1 + uniform(-5.0, 5.0, rnd) / 20);
+      queue ~= p;
+      if (assignStartRoom) {
+        auto w = world.get!World;
+        w.startingRoom = r;
+      }
+      roomcount++;
+    }
+
+    while (!queue.empty) {
+      auto p = queue.front;
+      queue.removeFront;
+      auto igi = rooms[p].get!IslandGenInfo;
+      foreach (x; -1..2) {
+        foreach (y; -1..2) {
+          auto p2 = p + Point(x, y, 0);
+          if (!rooms.inBounds(p2)) {
+            // No, *you* are out of line!
+            continue;
+          }
+          if (rooms.contains(p2)) {
+            // Don't overwrite.
+            continue;
+          }
+          auto fecundity = igi.fecundity - (droprate - uniform(-dropvar, dropvar, rnd));
+          if (fecundity <= 0) {
+            // I don't have the strength to go on.
+            continue;
+          }
+          auto e = makeRoom(p2, fecundity);
+          queue ~= p2;
+          roomcount++;
+          if (uniform(0, 512) == 0) {
+            waterSources ~= p2;
+          }
+        }
+      }
+    }
+
+    // Now do water!
+    foreach (w; waterSources) {
+      queue ~= w;
+    }
+    while (!queue.empty) {
+      auto p = queue.front;
+      queue.removeFront;
+      auto e = rooms[p];
+      auto igi = e.get!(IslandGenInfo);
+      igi.isWater = true;
+      e.get!(GenInfo).typeHint = "water";
+      // Pick a random neighbor with lower fecundity.
+      // If one's already water, be a tributary.
+      Entity[] neighbors;
+      bool isTributary = false;
+      foreach (x; -1..2) {
+        foreach (y; -1..2) {
+          if (x == 0 && y == 0) {
+            continue;
+          }
+          auto p2 = Point(p.x + x, p.y + y, 0);
+          if (rooms.inBounds(p2) && rooms.contains(p2)) {
+            auto e2 = rooms[p2];
+            auto igi2 = e2.get!IslandGenInfo;
+            // water only flows downhill
+            if (igi2.fecundity <= igi.fecundity) {
+              if (igi2.isWater) {
+                isTributary = true;
+                break;
+              }
+              neighbors ~= rooms[p2];
+            }
+          }
+        }
+      }
+      if (isTributary) {
+        continue;
+      }
+      if (neighbors.length == 0) {
+        continue;
+      }
+
+      // Pick a random neighbor and fall in!
+      queue ~= waterRandomChild(neighbors).get!(Room).localPosition;
+    }
+
+    writefln("created %s rooms for %s", roomcount, zoneEntity);
+    writeToFile(
+        "island%s.svg".format(zoneEntity.value),
+        ["sky-island": "#1C6C2A", "water": "#71AFD0"]);
+    return zoneEntity;
+  }
+
+  private Entity waterRandomChild(ref Entity[] generated) {
+    auto child = uniform(0, generated.length, rnd);
+    auto toWater = generated[child];
+    generated[child] = generated[$-1];
+    generated.length--;
+    toWater.get!(IslandGenInfo).isWater = true;
+    toWater.get!(GenInfo).typeHint = "water";
+    return toWater;
+  }
+
+  private Entity makeRoom(Point p, double fecundity) {
+    auto entity = cm.next;
+    rooms[p] = entity;
+    auto room = entity.add!Room;
+    room.localPosition = p;
+    // TODO room description
+    auto genInfo = entity.add!IslandGenInfo;
+    genInfo.fecundity = fecundity;
+    auto gi = entity.add!GenInfo;
+    gi.typeHint = "sky-island";
+    return entity;
+  }
+}
+
+class CityGen : Gen {
+	Point[] towers;
+	Wall[] walls;
+
+	this() {
+    super(60, 100, 8);
+	}
+
+  Entity generate(bool assignStartRoom = false) {
 		// Pick towers for each Kdrant.
 		auto segments = uniform!"[]"(4, 8, rnd);
 		auto region = PI * 2 / segments;
@@ -155,7 +361,6 @@ class CityGen {
 		// First, we draw the major roads...
 		foreach (p; SimpleCityRoomRange(this)) {
 			auto val = noise.noise2D(p.x, p.y);
-			infof("noise at %s: %s", p, val);
 			if (val >= -0.2) {
 				continue;
 			}
@@ -233,59 +438,13 @@ class CityGen {
 			w.startingRoom = rooms.nonDefaults.filter!(x => x != Invalid).front;
 		}
 
-		auto f = File("city%s.svg".format(zoneEntity.value), "w");
-		f.writef(`<svg width="%s" height="%s" xmlns="http://www.w3.org/2000/svg">
-				<path d="M `, limit * 2 + 10, limit * 2 + 10);
-		auto off = limit;
-		foreach (i, tower; towers) {
-			if (i > 0) {
-				f.writef(" L ");
-			}
-			assert(tower.x + off > 0, tower.toString);
-			assert(tower.y + off > 0, tower.toString);
-			f.writef("%s %s", tower.x + off, tower.y + off);
-		}
-		f.writeln(` Z" fill="#eeeeaa" stroke="#dedede"/>`);
-		foreach (e; rooms.nonDefaults) {
-			if (e == Invalid) continue;
-			auto room = e.get!Room;
-			foreach (exit; room.exits) {
-				auto src = room.localPosition;
-				auto dest = exit.target.get!(Room).localPosition;
-				f.writefln(`<line x1="%s" y1="%s" x2="%s" y2="%s" stroke="black" stroke-width="0.2" />`,
-						src.x + off, src.y + off, dest.x + off, dest.y + off);
-			}
-		}
-		foreach (e; rooms.nonDefaults) {
-			auto room = e.get!Room;
-			if (room is null) continue;
-			auto p = room.localPosition;
-			string color = "red";
-			auto gi = e.get!GenInfo;
-			if (gi) {
-				switch (gi.typeHint) {
-					case "tower":
-						color = "black";
-						break;
-					case "wall":
-						color = "#aaaaaa";
-						break;
-					case "street":
-						color = "#fe2274";
-						break;
-					case "sideStreet":
-						color = "#aafe74";
-						break;
-					default:
-						break;
-				}
-			}
-			assert(p.x + off > 0 && p.y + off > 0, "tried to draw out of bounds: %s + %s -> %s,%s".format(
-						p, off, p.x + off, p.y + off));
-			assert(p.y + off > 0, p.toString);
-			f.writefln(`	<circle cx="%s" cy="%s" r="0.4" fill="%s" stroke="black" stroke-width="0.1"/>`, p.x + off, p.y + off, color);
-		}
-		f.writeln(`</svg>`);
+    writeToFile("city%s.svg".format(zoneEntity.value), [
+      "tower": "black",
+      "wall": "#aaaaaa",
+      "street": "#fe2274",
+      "sideStreet": "#aafe74"
+    ]);
+    writefln("total of %s rooms generated", rooms.nonDefaults.walkLength);
 
 		return zoneEntity;
 	}

@@ -102,9 +102,9 @@ struct Point {
 
 	Point opBinary(string op)(double s) if (op == "*") {
 		return Point(
-				cast(long)(this.x + s),
-				cast(long)(this.y + s),
-				cast(long)(this.z + s));
+				cast(long)(this.x * s),
+				cast(long)(this.y * s),
+				cast(long)(this.z * s));
 	}
 
 	Point opOpAssign(string op)(const ref Point other) if (op == "+") {
@@ -162,6 +162,15 @@ struct Cube(T) {
 	T opIndex(Point p) {
 		return _data[_index(p.x, p.y, p.z)];
 	}
+
+  bool contains(Point p) {
+    return inBounds(p) && _data[_index(p.x, p.y, p.z)] != T.init;
+  }
+
+  bool inBounds(Point p) {
+    auto i = _index(p.x, p.y, p.z);
+    return i >= 0 && i < _data.length;
+  }
 
 	int opApply(int delegate(Point, T) @safe dg) {
 		for (long x = -_radius; x <= _radius; x++) {

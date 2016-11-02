@@ -1,4 +1,5 @@
 module dmud.scheduler;
+/+
 
 import dmud.eventqueue;
 import core.thread;
@@ -17,6 +18,8 @@ class MudScheduler : Scheduler {
 	private EventQueue!Fiber _queue;
 	private SimClock _clock;
 	private SysTime _nextTick;
+	private Fiber[] _systemFibers;
+	private Fiber[] _clientFibers;
 
 	this(SimClock clock) {
 		_clock = clock;
@@ -35,10 +38,11 @@ class MudScheduler : Scheduler {
 	  *
 	  * We cycle through system fibers at least once per tick and whenever we are not busy with
 	  * simulation stuff. So if the simulation completes its tick in half the time we allotted, we
-	  * spend the rest of the time running through 
+	  * spend the rest of the time running through system fibers.
 	  */
 	Fiber system(void delegate() op) {
-		Fiber f = create(op);
+		auto f = create(op);
+		f.isClient = false;
 		_systemFibers ~= f;
 		return f;
 	}
@@ -50,7 +54,8 @@ class MudScheduler : Scheduler {
 	  * thereby not be scheduled for a while. They will never be scheduled twice in one tick.
 	  */
 	Fiber client(void delegate() op) {
-		Fiber f = create(op);
+		auto f = create(op);
+		f.isClient = true;
 		_clientFibers ~= f;
 		return f;
 	}
@@ -210,7 +215,7 @@ class MudScheduler : Scheduler {
 		}
 	}
 
-	private final Fiber create(void delegate() op) nothrow {
+	private final MudFiber create(void delegate() op) nothrow {
 		void wrap() {
 			scope(exit) {
 				thisInfo.cleanup();
@@ -227,3 +232,4 @@ class MudScheduler : Scheduler {
 	Fiber[] m_fibers;
 	size_t  m_pos;
 }
++/

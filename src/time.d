@@ -1,5 +1,7 @@
 ﻿module dmud.time;
 
+import core.time;
+
 @safe:
 
 /**
@@ -48,7 +50,7 @@ struct SimTime {
 
 class SimClock {
 	SimTime now;
-	Duration tickDuration = dur!"msec"(250);
+	Duration tickDuration = dur!"msecs"(250);
 
 	void tick() {
 		now = now + Span.iota;

@@ -48,7 +48,10 @@ int main(string[] args)
 	auto w = world.add!World;
 	w.name = "The Mud";
 	w.banner = "Welcome!";
-	new CityGen().makeCity(true);
+	new IslandGen().generate(true);
+  foreach (i; 0..5) {
+    new IslandGen().generate(false);
+  }
 
   auto db = new Db("mud.sqlite");
   db.init;
