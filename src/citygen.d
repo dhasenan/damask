@@ -137,13 +137,14 @@ abstract class Gen {
 }
 
 class IslandGenInfo : Component {
+	this() { canSave = false; }
   double fecundity = 1;
   bool isWater = false;
 }
 
 class IslandGen : Gen {
-  enum droprate = 0.1;
-  enum dropvar = 0.1;
+  enum droprate = 0.2;
+  enum dropvar = 0.2;
   this() {
     super(60, 100, 8);
   }
@@ -170,7 +171,9 @@ class IslandGen : Gen {
     while (!queue.empty) {
       auto p = queue.front;
       queue.removeFront;
-      auto igi = rooms[p].get!IslandGenInfo;
+      auto e = rooms[p];
+      auto igi = e.get!IslandGenInfo;
+      auto sroom = e.get!Room;
       foreach (x; -1..2) {
         foreach (y; -1..2) {
           auto p2 = p + Point(x, y, 0);
@@ -187,7 +190,7 @@ class IslandGen : Gen {
             // I don't have the strength to go on.
             continue;
           }
-          auto e = makeRoom(p2, fecundity);
+          auto e2 = makeRoom(p2, fecundity);
           queue ~= p2;
           roomcount++;
           if (uniform(0, 512) == 0) {
@@ -241,6 +244,16 @@ class IslandGen : Gen {
 
       // Pick a random neighbor and fall in!
       queue ~= waterRandomChild(neighbors).get!(Room).localPosition;
+    }
+
+    // Finally, link rooms together.
+    foreach (e; rooms.nonDefaults) {
+      auto r = e.get!Room;
+      foreach (p; r.localPosition.neighbors) {
+        auto e2 = rooms[p];
+        if (e2 == None) continue;
+        r.dig(e2.get!Room, true);
+      }
     }
 
     writefln("created %s rooms for %s", roomcount, zoneEntity);

@@ -8,6 +8,7 @@ import std.concurrency;
 import std.encoding;
 import std.exception;
 import std.format;
+import std.range;
 
 import jsonizer;
 
@@ -113,6 +114,13 @@ struct Point {
 		z += other.z;
 		return this;
 	}
+
+  auto neighbors() {
+    return
+      cartesianProduct(iota(-1, 2), iota(-1, 2))
+        .filter!(k => k[0] != 0 || k[1] != 0)
+        .map!(k => Point(k[0] + x, k[1] + y, z));
+  }
 }
 
 /// A cubic array with *centered* coordinates
@@ -183,6 +191,7 @@ struct Cube(T) {
 		return 0;
 	}
 
+  /// Returns: range of T
 	auto nonDefaults() {
 		return _data.filter!(x => x != T.init);
 	}
