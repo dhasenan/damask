@@ -80,6 +80,14 @@ class Db {
 				(cast(Component)component).toJSON.toString);
 	}
 
+  void startTx() {
+    _db.execute("begin transaction");
+  }
+
+  void endTx() {
+    _db.execute("end transaction");
+  }
+
 	PlayerInfo getUser(string name) {
 		scope(exit) _getUser.reset;
 		_getUser.bind(":name", name);

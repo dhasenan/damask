@@ -21,6 +21,24 @@ import dmud.util;
 
 @safe:
 
+/**
+  * A feature is something that can appear in a room.
+  * It'll be converted to a doodad eventually.
+  */
+struct Feature {
+  string name;
+  string[] aliases;
+  string[] adjectives;
+  string[] descriptions;
+}
+
+Feature[] islandFeatures() {
+  return [
+    Feature("sycamore tree", ["sycamore", "tree"], ["tall", "broad-leafed"], ["a tall sycamore with broad leaves"]),
+    Feature("spruce sapling", ["spruce", "sapling"], ["scruffy-looking", "scruffy"], ["a tiny spruce sapling in a heap of fallen needles"])
+  ];
+}
+
 class GenInfo : Component {
 	this() { canSave = false; }
 	// The type of thing that was generated.
@@ -256,7 +274,7 @@ class IslandGen : Gen {
       }
     }
 
-    writefln("created %s rooms for %s", roomcount, zoneEntity);
+    infof("created %s rooms for %s", roomcount, zoneEntity);
     writeToFile(
         "island%s.svg".format(zoneEntity.value),
         ["sky-island": "#1C6C2A", "water": "#71AFD0"]);
@@ -277,8 +295,13 @@ class IslandGen : Gen {
     auto entity = cm.next;
     rooms[p] = entity;
     auto room = entity.add!Room;
+    room.zone = zoneEntity;
     room.localPosition = p;
     // TODO room description
+    auto mo = entity.add!MudObj;
+    mo.name = "Sky island wilderness";
+    mo.description = "A random spot in the wilderness on a sky island.";
+    mo.containing = zoneEntity;
     auto genInfo = entity.add!IslandGenInfo;
     genInfo.fecundity = fecundity;
     auto gi = entity.add!GenInfo;

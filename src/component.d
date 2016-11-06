@@ -136,13 +136,10 @@ class ComponentManager {
 		return null;
 	}
 
-	/*
-
-	@property
+	@property @trusted
 	const(Entity[]) entities() {
 		return _components.keys;
 	}
-  */
 }
 
 

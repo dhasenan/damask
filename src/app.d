@@ -9,6 +9,7 @@ import dmud.player;
 import dmud.server;
 
 import core.thread;
+import std.algorithm;
 import std.concurrency;
 import std.experimental.logger;
 import std.stdio;
@@ -44,17 +45,23 @@ int main(string[] args)
 	memoryErrorStart;
 	setupLogging;
 
-	import dmud.citygen;
-	auto w = world.add!World;
-	w.name = "The Mud";
-	w.banner = "Welcome!";
-	new IslandGen().generate(true);
-  foreach (i; 0..5) {
-    new IslandGen().generate(false);
-  }
+  import dmud.citygen;
 
   auto db = new Db("mud.sqlite");
   db.init;
+
+  if (args.canFind(`gen`)) {
+    auto w = world.add!World;
+    w.name = "The Mud";
+    w.banner = "Welcome!";
+    new IslandGen().generate(true);
+    foreach (i; 0..5) {
+      new IslandGen().generate(false);
+    }
+    save(db, ComponentManager.instance);
+  } else {
+    load(db, ComponentManager.instance);
+  }
 
 	setupScheduler;
 	ushort port = 5005;

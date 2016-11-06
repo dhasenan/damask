@@ -125,6 +125,7 @@ class Room : Component {
 	@jsonize {
 		Entity[] mobs;
 		Entity[] items;
+		Entity[] doodads;
 		Entity zone;
 		Exit[] exits;
 		/// The position of the room within its zone.
@@ -134,6 +135,10 @@ class Room : Component {
 	string lookAt(Entity mob) {
 		// TODO visibility (which items can I see? which mobs? are any exits hidden?)
 		auto s = entity.get!MudObj;
+    if (s is null) {
+      errorf(`player %s got into obj %s which has no MudObj`, mob, entity);
+      return `ERROR: you are in room %s, which apparently doesn't exist!`.format(entity);
+    }
 		with (s) {
 			return name ~ '\n' ~
 				description ~ '\n' ~
