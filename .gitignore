@@ -12,3 +12,6 @@ dmud
 .project
 .settings
 .dlangidews
+
+# I emit images to show procgen output a lot.
+*.svg
